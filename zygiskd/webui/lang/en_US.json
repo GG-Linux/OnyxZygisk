@@ -1,0 +1,78 @@
+{
+  "navbar": {
+    "status": "Status",
+    "modules": "Modules",
+    "fn": "FN",
+    "logs": "Logs",
+    "apatch": "APatch",
+    "settings": "Settings"
+  },
+  "common": {
+    "loading": "Loading...",
+    "refresh": "Refresh",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "status": {
+    "monitor": "Monitor",
+    "version": "Version",
+    "root": "Root Impl",
+    "daemon": "Daemon",
+    "zygote": "Zygote",
+    "running": "Running",
+    "stopped": "Stopped",
+    "none": "None",
+    "noStatus": "(no monitor status)"
+  },
+  "modules": {
+    "hint": "Zygisk modules in /data/adb/modules",
+    "empty": "No Zygisk modules installed",
+    "unknownAuthor": "unknown"
+  },
+  "fn": {
+    "hint": "FN nodes in /data/adb/onyxzygisk/fn",
+    "empty": "No FN nodes",
+    "trigger": "trigger",
+    "scope": "scope",
+    "enabledMsg": "FN node \"%s\" enabled (applies on next fork)",
+    "disabledMsg": "FN node \"%s\" disabled (applies on next fork)"
+  },
+  "logs": {
+    "lines": "Lines",
+    "auto": "Auto",
+    "empty": "(no logs)"
+  },
+  "apatch": {
+    "title": "APatch",
+    "apdVersion": "apd version",
+    "apdRunning": "apd running",
+    "configCount": "config entries",
+    "configTitle": "Root grants & umount (package_config)",
+    "configHint": "Read/write /data/adb/ap/package_config directly (atomic replace; apd syncs it to the kernel)",
+    "pkgPlaceholder": "package name, e.g. com.example.app",
+    "add": "Add app",
+    "pkg": "Package",
+    "uid": "UID",
+    "rootGrant": "Root grant",
+    "umount": "Umount modules",
+    "remove": "Remove",
+    "empty": "No entries — add an app to start",
+    "saved": "Saved (apd will sync to the kernel)",
+    "badPkg": "Invalid package name",
+    "exists": "Package already listed",
+    "noUid": "Package not found — is it installed?",
+    "apdModules": "apd module list",
+    "noModules": "(no apd output)"
+  },
+  "settings": {
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeAmoled": "AMOLED",
+    "language": "Language",
+    "about": "About",
+    "aboutText": "OnyxZygisk — a Zygisk implementation via ptrace, with FN (Functional Node) modules. Fork of NeoZygisk."
+  }
+}

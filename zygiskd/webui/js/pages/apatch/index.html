@@ -1,0 +1,31 @@
+<div class="card">
+  <div class="card-title">{{apatch.title}}</div>
+  <div class="grid stats" data-role="stats"></div>
+</div>
+
+<div class="card">
+  <div class="card-title">{{apatch.configTitle}}</div>
+  <p class="hint">{{apatch.configHint}}</p>
+  <div class="row">
+    <input type="text" data-role="pkg" placeholder="{{apatch.pkgPlaceholder}}">
+    <button data-role="add" class="btn primary">{{apatch.add}}</button>
+  </div>
+  <p class="msg" data-role="msg"></p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>{{apatch.pkg}}</th>
+        <th>{{apatch.uid}}</th>
+        <th>{{apatch.rootGrant}}</th>
+        <th>{{apatch.umount}}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody data-role="rows"></tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-title">{{apatch.apdModules}}</div>
+  <pre class="monitor-text" data-role="apdmodules">{{common.loading}}</pre>
+</div>

@@ -1,0 +1,2 @@
+pkg,exclude,allow,uid,to_uid,sctx
+com.tencent.mm,1,1,10123,10123,

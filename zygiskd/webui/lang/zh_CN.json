@@ -1,0 +1,78 @@
+{
+  "navbar": {
+    "status": "状态",
+    "modules": "模块",
+    "fn": "FN",
+    "logs": "日志",
+    "apatch": "APatch",
+    "settings": "设置"
+  },
+  "common": {
+    "loading": "加载中…",
+    "refresh": "刷新",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "status": {
+    "monitor": "监控器",
+    "version": "版本",
+    "root": "Root 方案",
+    "daemon": "守护进程",
+    "zygote": "Zygote",
+    "running": "运行中",
+    "stopped": "已停止",
+    "none": "无",
+    "noStatus": "（无监控器状态）"
+  },
+  "modules": {
+    "hint": "位于 /data/adb/modules 的 Zygisk 模块",
+    "empty": "没有已安装的 Zygisk 模块",
+    "unknownAuthor": "未知作者"
+  },
+  "fn": {
+    "hint": "FN 节点位于 /data/adb/onyxzygisk/fn",
+    "empty": "没有 FN 节点",
+    "trigger": "触发",
+    "scope": "范围",
+    "enabledMsg": "FN 节点 “%s” 已启用（下次 fork 生效）",
+    "disabledMsg": "FN 节点 “%s” 已禁用（下次 fork 生效）"
+  },
+  "logs": {
+    "lines": "行数",
+    "auto": "自动",
+    "empty": "（无日志）"
+  },
+  "apatch": {
+    "title": "APatch",
+    "apdVersion": "apd 版本",
+    "apdRunning": "apd 运行",
+    "configCount": "配置条目",
+    "configTitle": "root 授权与卸载模块（package_config）",
+    "configHint": "直接读写 /data/adb/ap/package_config（原子替换，apd 会自动同步到内核）",
+    "pkgPlaceholder": "包名，如 com.example.app",
+    "add": "添加应用",
+    "pkg": "包名",
+    "uid": "UID",
+    "rootGrant": "Root 授权",
+    "umount": "卸载模块",
+    "remove": "移除",
+    "empty": "暂无配置 —— 添加一个应用开始",
+    "saved": "已保存（apd 将自动同步到内核）",
+    "badPkg": "包名格式无效",
+    "exists": "该包已在列表中",
+    "noUid": "未找到该包，请确认已安装",
+    "apdModules": "apd 模块列表",
+    "noModules": "（apd 无输出）"
+  },
+  "settings": {
+    "appearance": "外观",
+    "theme": "主题",
+    "themeSystem": "跟随系统",
+    "themeLight": "浅色",
+    "themeDark": "深色",
+    "themeAmoled": "纯黑",
+    "language": "语言",
+    "about": "关于",
+    "aboutText": "OnyxZygisk —— 基于 ptrace 的 Zygisk 实现，支持 FN（Functional Node）模块。fork 自 NeoZygisk。"
+  }
+}

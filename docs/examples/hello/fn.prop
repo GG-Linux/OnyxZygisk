@@ -1,0 +1,9 @@
+id=hello
+name=Hello FN Node
+version=1.0
+versionCode=1
+author=Sai
+description=示例：boot 阶段写入一个标记文件
+trigger=boot
+scope=all
+ui.summary=示例节点，boot 时执行 service.sh

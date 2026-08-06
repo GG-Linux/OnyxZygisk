@@ -1,0 +1,9 @@
+[versions]
+agp = "9.2.1"
+junit = "4.13.2"
+
+[libraries]
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+
+[plugins]
+agp-lib = { id = "com.android.library", version.ref = "agp" }

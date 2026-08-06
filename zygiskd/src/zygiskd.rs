@@ -1,0 +1,652 @@
+// src/zygiskd.rs
+
+//! The core logic for the Zygisk daemon (`zygiskd`).
+//!
+//! This module is responsible for:
+//! - Initializing paths and communication channels.
+//! - Loading Zygisk modules from the designated directory.
+//! - Listening on a Unix domain socket for requests from the Zygisk injector.
+//! - Handling requests such as providing module libraries, querying process flags,
+//!   and managing companion processes.
+
+use crate::constants::{DaemonSocketAction, ProcessFlags, ZKSU_VERSION};
+use crate::mount::{MountNamespace, MountNamespaceManager};
+use crate::r#fn;
+use crate::utils::{self, UnixStreamExt};
+use crate::{constants, lp_select, root_impl};
+use anyhow::{Context as AnyhowContext, Result, bail};
+use log::{debug, error, info, trace, warn};
+use passfd::FdPassingExt;
+use rustix::io::{FdFlags, fcntl_setfd};
+use std::fs;
+use std::io::Error;
+use std::os::fd::AsRawFd;
+use std::os::fd::{AsFd, OwnedFd, RawFd};
+use std::os::unix::process::CommandExt;
+use std::{
+    os::unix::net::{UnixListener, UnixStream},
+    path::Path,
+    process::Command,
+    sync::{Arc, Mutex, OnceLock},
+    thread,
+};
+
+/// Represents a loaded Zygisk module.
+struct Module {
+    name: String,
+    lib_fd: OwnedFd,
+    /// A handle to the module's companion process socket, if it exists and is running.
+    companion: Mutex<Option<UnixStream>>,
+}
+
+/// The shared context for the daemon, containing all loaded modules and a mount namespace manager
+struct AppContext {
+    modules: Vec<Module>,
+    mount_manager: Arc<MountNamespaceManager>,
+    /// Companion sockets for FN nodes, keyed by node id. Classic modules keep
+    /// their companions inside `Module`; FN nodes come and go at runtime, so a
+    /// map is easier to keep in sync with the on-disk state.
+    fn_companions: Mutex<std::collections::HashMap<String, Mutex<Option<UnixStream>>>>,
+}
+
+// Global paths, initialized once at startup.
+static TMP_PATH: OnceLock<String> = OnceLock::new();
+static CONTROLLER_SOCKET: OnceLock<String> = OnceLock::new();
+static DAEMON_SOCKET_PATH: OnceLock<String> = OnceLock::new();
+
+/// The main function for the zygiskd daemon.
+pub fn main(tmp_path: Option<&str>) -> Result<()> {
+    info!("Welcome to OnyxZygisk ({}) !", ZKSU_VERSION);
+
+    initialize_globals(tmp_path)?;
+    let modules = load_modules()?;
+    scan_fn_nodes_at_startup();
+    // FN `post-fs-data` scripts run right after startup, mirroring Magisk's
+    // post-fs-data stage.
+    r#fn::run_fn_scripts(TMP_PATH.get().unwrap(), "post_fs_data");
+    // The controller (ptrace monitor) may be absent when the daemon is started
+    // manually (e.g. for debugging); that must not kill the daemon.
+    if let Err(e) = send_startup_info(&modules) {
+        warn!("Failed to send startup info to controller: {}", e);
+    }
+
+    let mount_manager = Arc::new(MountNamespaceManager::new());
+    let context = Arc::new(AppContext {
+        modules,
+        mount_manager,
+        fn_companions: Mutex::new(std::collections::HashMap::new()),
+    });
+    let listener = create_daemon_socket()?;
+
+    info!("Daemon listening on {}", DAEMON_SOCKET_PATH.get().unwrap());
+
+    // Main event loop: accept and handle incoming connections.
+    for stream in listener.incoming() {
+        let stream = stream.context("Failed to accept incoming connection")?;
+        let context = Arc::clone(&context);
+        if let Err(e) = handle_connection(stream, context) {
+            warn!("Error handling connection: {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+/// Handles a single incoming connection from Zygisk.
+fn handle_connection(mut stream: UnixStream, context: Arc<AppContext>) -> Result<()> {
+    let action = stream.read_u8()?;
+    let action = DaemonSocketAction::try_from(action)
+        .with_context(|| format!("Invalid daemon action code: {}", action))?;
+    trace!("New daemon action: {:?}", action);
+
+    match action {
+        // These actions are lightweight and handled synchronously.
+        DaemonSocketAction::CacheMountNamespace => {
+            let pid = stream.read_u32()? as i32;
+            context
+                .mount_manager
+                .save_mount_namespace(pid, MountNamespace::Clean)?;
+            context
+                .mount_manager
+                .save_mount_namespace(pid, MountNamespace::Root)?;
+        }
+        DaemonSocketAction::PingHeartbeat => {
+            let value = constants::ZYGOTE_INJECTED;
+            utils::unix_datagram_sendto(CONTROLLER_SOCKET.get().unwrap(), &value.to_le_bytes())?;
+        }
+        DaemonSocketAction::ZygoteRestart => {
+            info!("Zygote restarted, cleaning up companion sockets.");
+            for module in &context.modules {
+                module.companion.lock().unwrap().take();
+            }
+        }
+        DaemonSocketAction::SystemServerStarted => {
+            let value = constants::SYSTEM_SERVER_STARTED;
+            utils::unix_datagram_sendto(CONTROLLER_SOCKET.get().unwrap(), &value.to_le_bytes())?;
+            // FN `boot` (service.sh) scripts run at late-start, after
+            // system_server is up — the same point Magisk runs service.sh.
+            r#fn::run_fn_scripts(TMP_PATH.get().unwrap(), "boot");
+        }
+        // Heavier actions are spawned into a separate thread.
+        _ => {
+            thread::spawn(move || {
+                if let Err(e) = handle_threaded_action(action, stream, &context) {
+                    warn!(
+                        "Error handling daemon action '{:?}': {:?}\nBacktrace: {}",
+                        action,
+                        e,
+                        e.backtrace()
+                    );
+                }
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Handles potentially long-running actions in a dedicated thread.
+fn handle_threaded_action(
+    action: DaemonSocketAction,
+    mut stream: UnixStream,
+    context: &AppContext,
+) -> Result<()> {
+    match action {
+        DaemonSocketAction::GetProcessFlags => handle_get_process_flags(&mut stream),
+        DaemonSocketAction::UpdateMountNamespace => {
+            handle_update_mount_namespace(&mut stream, context)
+        }
+        DaemonSocketAction::ReadModules => handle_read_modules(&mut stream, context),
+        DaemonSocketAction::RequestCompanionSocket => {
+            handle_request_companion_socket(&mut stream, context)
+        }
+        DaemonSocketAction::GetModuleDir => handle_get_module_dir(&mut stream, context),
+        DaemonSocketAction::ListFnNodes => handle_list_fn_nodes(&mut stream),
+        DaemonSocketAction::SetFnNodeEnabled => handle_set_fn_node_enabled(&mut stream),
+        DaemonSocketAction::RemoveFnNode => handle_remove_fn_node(&mut stream),
+        DaemonSocketAction::ReadFnModules => handle_read_fn_modules(&mut stream),
+        DaemonSocketAction::GetFnModuleDir => handle_get_fn_module_dir(&mut stream),
+        // Other cases are handled synchronously and won't reach here.
+        _ => unreachable!(),
+    }
+}
+
+/// Initializes global path variables from the daemon work directory.
+fn initialize_globals(tmp_path: Option<&str>) -> Result<()> {
+    let tmp_path = match tmp_path {
+        // The normal path: the loader passes the work directory via `--workdir`.
+        Some(path) if !path.is_empty() => path.to_owned(),
+        Some(_) => bail!("TMP_PATH daemon argument is empty"),
+        // Escape hatch for manual invocation without `--workdir`.
+        None => std::env::var("TMP_PATH").context("TMP_PATH environment variable not set")?,
+    };
+    TMP_PATH.set(tmp_path).unwrap();
+
+    CONTROLLER_SOCKET
+        .set(format!("{}/init_monitor", TMP_PATH.get().unwrap()))
+        .unwrap();
+    DAEMON_SOCKET_PATH
+        .set(format!(
+            "{}/{}",
+            TMP_PATH.get().unwrap(),
+            lp_select!("/cp32.sock", "/cp64.sock")
+        ))
+        .unwrap();
+    Ok(())
+}
+
+/// Sends initial status information to the controller.
+fn send_startup_info(modules: &[Module]) -> Result<()> {
+    let mut msg = Vec::<u8>::new();
+    let info = match root_impl::get() {
+        root_impl::RootImpl::APatch
+        | root_impl::RootImpl::KernelSU
+        | root_impl::RootImpl::Magisk => {
+            msg.extend_from_slice(&constants::DAEMON_SET_INFO.to_le_bytes());
+            let module_names: Vec<_> = modules.iter().map(|m| m.name.as_str()).collect();
+            if !module_names.is_empty() {
+                format!(
+                    "\t\tRoot: {:?}\n\t\tModules ({}):\n\t\t\t{}",
+                    root_impl::get(),
+                    modules.len(),
+                    module_names.join("\n\t\t\t")
+                )
+            } else {
+                format!("\t\tRoot: {:?}", root_impl::get())
+            }
+        }
+        _ => {
+            msg.extend_from_slice(&constants::DAEMON_SET_ERROR_INFO.to_le_bytes());
+            format!("\t\tInvalid root implementation: {:?}", root_impl::get())
+        }
+    };
+    msg.extend_from_slice(&(info.len() as u32 + 1).to_le_bytes());
+    msg.extend_from_slice(info.as_bytes());
+    msg.push(0); // Null terminator
+    utils::unix_datagram_sendto(CONTROLLER_SOCKET.get().unwrap(), &msg)
+        .context("Failed to send startup info to controller")
+}
+
+/// Detects the device architecture.
+fn get_arch() -> Result<&'static str> {
+    let system_arch = utils::get_property("ro.product.cpu.abi")?;
+    if system_arch.contains("arm") {
+        Ok(lp_select!("armeabi-v7a", "arm64-v8a"))
+    } else if system_arch.contains("x86") {
+        Ok(lp_select!("x86", "x86_64"))
+    } else if system_arch.is_empty() {
+        // No property service (host runs, manual startup): fall back to the
+        // compiled-in ABI. Android always sets the property.
+        Ok(lp_select!("armeabi-v7a", "arm64-v8a"))
+    } else {
+        bail!("Unsupported system architecture: {}", system_arch)
+    }
+}
+
+/// Scans the module directory, loads valid modules, and creates memfds for their libraries.
+fn load_modules() -> Result<Vec<Module>> {
+    let arch = get_arch()?;
+    debug!("Daemon architecture: {arch}");
+
+    let mut modules = Vec::new();
+    let dir = match fs::read_dir(constants::PATH_MODULES_DIR) {
+        Ok(dir) => dir,
+        Err(e) => {
+            warn!("Failed to read modules directory: {}", e);
+            return Ok(modules);
+        }
+    };
+
+    for entry in dir.flatten() {
+        let name = entry.file_name().into_string().unwrap_or_default();
+        let so_path = entry.path().join(format!("zygisk/{arch}.so"));
+        let disabled_flag = entry.path().join("disable");
+
+        if !so_path.exists() || disabled_flag.exists() {
+            continue;
+        }
+
+        info!("Loading module `{}`...", name);
+        match create_library_fd(&so_path) {
+            Ok(lib_fd) => {
+                modules.push(Module {
+                    name,
+                    lib_fd,
+                    companion: Mutex::new(None),
+                });
+            }
+            Err(e) => {
+                warn!("Failed to create memfd for `{}`: {}", name, e);
+            }
+        };
+    }
+
+    Ok(modules)
+}
+
+/// Sweeps the FN node directory once at startup and logs the result.
+fn scan_fn_nodes_at_startup() {
+    let nodes = r#fn::scan_fn_nodes(TMP_PATH.get().unwrap());
+    let enabled = nodes
+        .iter()
+        .filter(|n| matches!(n.status, r#fn::FnStatus::Enabled))
+        .count();
+    info!("FN nodes: {} enabled / {} total", enabled, nodes.len());
+}
+
+/// Creates a sealed, read-only memfd containing the module's shared library.
+/// This is a security measure to prevent the library from being tampered with after loading.
+fn create_library_fd(so_path: &Path) -> Result<OwnedFd> {
+    let opts = memfd::MemfdOptions::default().allow_sealing(true);
+    let memfd = opts.create("zygisk-module")?;
+
+    // Copy the library content into the memfd.
+    let file = fs::File::open(so_path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut writer = memfd.as_file();
+    std::io::copy(&mut reader, &mut writer)?;
+
+    // Apply seals to make the memfd immutable.
+    let mut seals = memfd::SealsHashSet::new();
+    seals.insert(memfd::FileSeal::SealShrink);
+    seals.insert(memfd::FileSeal::SealGrow);
+    seals.insert(memfd::FileSeal::SealWrite);
+    seals.insert(memfd::FileSeal::SealSeal);
+
+    if let Err(e) = memfd.add_seals(&seals) {
+        // Ignore errors for the sake of compatibility
+        warn!("Failed to add seals : {}", e);
+    }
+
+    Ok(OwnedFd::from(memfd.into_file()))
+}
+
+/// Creates and binds the main daemon Unix socket.
+fn create_daemon_socket() -> Result<UnixListener> {
+    utils::set_socket_create_context("u:r:zygote:s0")?;
+    let listener = utils::unix_listener_from_path(DAEMON_SOCKET_PATH.get().unwrap())?;
+    Ok(listener)
+}
+
+/// Spawns a companion process for a module.
+///
+/// This involves forking, setting up a communication channel (Unix socket pair),
+/// and re-executing the daemon binary with special arguments (`companion <fd>`).
+fn spawn_companion(name: &str, lib_fd: RawFd) -> Result<Option<UnixStream>> {
+    let (mut daemon_sock, companion_sock) = UnixStream::pair()?;
+
+    // FIXME: A more robust way to get the current executable path is desirable.
+    let self_exe = std::env::args().next().unwrap();
+    let nice_name = self_exe.split('/').last().unwrap_or("zygiskd");
+
+    // The fork/exec logic is now handled directly here.
+    // # Safety
+    // This is highly unsafe because it uses `fork()` and `exec()`. The child
+    // process must not call any non-async-signal-safe functions before `exec()`.
+    unsafe {
+        let pid = libc::fork();
+        if pid < 0 {
+            // Fork failed
+            bail!(Error::last_os_error());
+        }
+
+        if pid == 0 {
+            // --- Child Process ---
+            drop(daemon_sock); // Child doesn't need the daemon's end of the socket.
+
+            // The companion socket FD must be passed to the new process,
+            // so we must remove the `FD_CLOEXEC` flag.
+            fcntl_setfd(companion_sock.as_fd(), FdFlags::empty())
+                .expect("Failed to clear CLOEXEC on companion socket");
+
+            // The first argument (`arg0`) is used to set a descriptive process name.
+            let arg0 = format!("{}-{}", nice_name, name);
+            let companion_fd_str = format!("{}", companion_sock.as_raw_fd());
+
+            // exec replaces the current process; it does not return on success.
+            let err = Command::new(&self_exe)
+                .arg0(arg0)
+                .arg("companion")
+                .arg(companion_fd_str)
+                .exec();
+
+            // If exec returns, it's always an error.
+            bail!("exec failed: {}", err);
+        }
+
+        // --- Parent Process ---
+        drop(companion_sock); // Parent doesn't need the companion's end of the socket.
+
+        // Now, establish communication with the newly spawned companion.
+        daemon_sock.write_string(name)?;
+        daemon_sock.send_fd(lib_fd)?;
+
+        // Wait for the companion's response to know if it loaded the module successfully.
+        match daemon_sock.read_u8()? {
+            0 => Ok(None),              // Module has no companion entry point or failed to load.
+            1 => Ok(Some(daemon_sock)), // Companion is ready.
+            _ => bail!("Invalid response from companion setup"),
+        }
+    }
+}
+
+// --- Action Handlers ---
+
+fn handle_get_process_flags(stream: &mut UnixStream) -> Result<()> {
+    let uid = stream.read_u32()? as i32;
+    let mut flags = ProcessFlags::empty();
+
+    if root_impl::uid_is_manager(uid) {
+        flags |= ProcessFlags::PROCESS_IS_MANAGER;
+    } else {
+        if root_impl::uid_granted_root(uid) {
+            flags |= ProcessFlags::PROCESS_GRANTED_ROOT;
+        }
+        if root_impl::uid_should_umount(uid) {
+            flags |= ProcessFlags::PROCESS_ON_DENYLIST;
+        }
+    }
+
+    match root_impl::get() {
+        root_impl::RootImpl::APatch => flags |= ProcessFlags::PROCESS_ROOT_IS_APATCH,
+        root_impl::RootImpl::KernelSU => flags |= ProcessFlags::PROCESS_ROOT_IS_KSU,
+        root_impl::RootImpl::Magisk => flags |= ProcessFlags::PROCESS_ROOT_IS_MAGISK,
+        _ => (), // No flag for None, TooOld, or Multiple
+    }
+
+    trace!("Flags for UID {}: {:?}", uid, flags);
+    stream.write_u32(flags.bits())?;
+    Ok(())
+}
+
+fn handle_update_mount_namespace(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
+    let namespace_type = MountNamespace::try_from(stream.read_u8()?)?;
+    if let Some(fd) = context.mount_manager.get_namespace_fd(namespace_type) {
+        // Namespace is already cached, send the FD to the client.
+        // SUCCESS: Send Status '1', then the FD.
+        stream.write_u8(1)?;
+        stream.send_fd(fd)?;
+    } else {
+        // FAILURE: Send Status '0'. 
+        // Do NOT send an FD or random u32 bytes, just stop here.
+        warn!("Namespace {:?} is not cached yet.", namespace_type);
+        stream.write_u8(0)?;
+    }
+    Ok(())
+}
+
+fn handle_read_modules(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
+    stream.write_usize(context.modules.len())?;
+    for module in &context.modules {
+        stream.write_string(&module.name)?;
+        stream.send_fd(module.lib_fd.as_raw_fd())?;
+    }
+    Ok(())
+}
+
+fn handle_request_companion_socket(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
+    let index = stream.read_usize()?;
+
+    // FN nodes are addressed with an index offset past the classic modules
+    // (see `handle_read_fn_modules`); resolve them against a fresh scan.
+    if index >= context.modules.len() {
+        return handle_request_fn_companion_socket(stream, context, index - context.modules.len());
+    }
+
+    let module = &context.modules[index];
+    let mut companion = module.companion.lock().unwrap();
+
+    // Check if the existing companion socket is still alive.
+    if let Some(sock) = companion.as_ref() {
+        if !utils::is_socket_alive(sock) {
+            error!(
+                "Companion for module `{}` appears to have crashed.",
+                module.name
+            );
+            companion.take();
+        }
+    }
+
+    // If no companion exists, try to spawn one.
+    if companion.is_none() {
+        match spawn_companion(&module.name, module.lib_fd.as_raw_fd()) {
+            Ok(Some(sock)) => {
+                trace!("Spawned new companion for `{}`.", module.name);
+                *companion = Some(sock);
+            }
+            Ok(None) => {
+                warn!(
+                    "Module `{}` does not have a companion entry point.",
+                    module.name
+                );
+            }
+            Err(e) => {
+                warn!("Failed to spawn companion for `{}`: {}", module.name, e);
+            }
+        };
+    }
+
+    // Send the companion FD to the client if available.
+    if let Some(sock) = companion.as_ref() {
+        if let Err(e) = sock.send_fd(stream.as_raw_fd()) {
+            error!(
+                "Failed to send companion socket FD for module `{}`: {}",
+                module.name, e
+            );
+            // Inform client of failure.
+            stream.write_u8(0)?;
+        }
+        // If successful, the companion itself will notify the client.
+    } else {
+        // Inform client that no companion is available.
+        stream.write_u8(0)?;
+    }
+    Ok(())
+}
+
+/// Companion resolution for FN nodes: the companion is keyed by node id so
+/// that it survives re-scans of the node directory.
+fn handle_request_fn_companion_socket(
+    stream: &mut UnixStream,
+    context: &AppContext,
+    fn_index: usize,
+) -> Result<()> {
+    let nodes = r#fn::active_native_nodes(TMP_PATH.get().unwrap());
+    let Some(node) = nodes.get(fn_index) else {
+        warn!("FN companion requested for unknown index {}", fn_index);
+        stream.write_u8(0)?;
+        return Ok(());
+    };
+    let entry = node.entry.as_deref().unwrap_or_default();
+    let lib_path = format!("{}/fn/{}/{}", TMP_PATH.get().unwrap(), node.id, entry);
+    let lib_fd = create_library_fd(Path::new(&lib_path))?;
+
+    let companions = &mut *context.fn_companions.lock().unwrap();
+    let cell = companions.entry(node.id.clone()).or_default();
+    let mut companion = cell.lock().unwrap();
+    if let Some(sock) = companion.as_ref() {
+        if !utils::is_socket_alive(sock) {
+            error!("Companion for FN node `{}` appears to have crashed.", node.id);
+            companion.take();
+        }
+    }
+    if companion.is_none() {
+        match spawn_companion(&node.id, lib_fd.as_raw_fd()) {
+            Ok(Some(sock)) => {
+                trace!("Spawned new companion for FN node `{}`.", node.id);
+                *companion = Some(sock);
+            }
+            Ok(None) => {
+                warn!("FN node `{}` does not have a companion entry point.", node.id);
+            }
+            Err(e) => {
+                warn!("Failed to spawn companion for FN node `{}`: {}", node.id, e);
+            }
+        };
+    }
+
+    if let Some(sock) = companion.as_ref() {
+        if let Err(e) = sock.send_fd(stream.as_raw_fd()) {
+            error!(
+                "Failed to send companion socket FD for FN node `{}`: {}",
+                node.id, e
+            );
+            stream.write_u8(0)?;
+        }
+    } else {
+        stream.write_u8(0)?;
+    }
+    Ok(())
+}
+
+fn handle_get_module_dir(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
+    let index = stream.read_usize()?;
+    let dir = if index < context.modules.len() {
+        let module = &context.modules[index];
+        let dir_path = format!("{}/{}", constants::PATH_MODULES_DIR, module.name);
+        fs::File::open(dir_path)?
+    } else {
+        // FN node directory, addressed with the offset index space.
+        let nodes = r#fn::active_native_nodes(TMP_PATH.get().unwrap());
+        let fn_index = index - context.modules.len();
+        let Some(node) = nodes.get(fn_index) else {
+            bail!("Unknown module index {}", index);
+        };
+        r#fn::get_fn_module_dir(TMP_PATH.get().unwrap(), &node.id)?
+    };
+    stream.send_fd(dir.as_raw_fd())?;
+    Ok(())
+}
+
+fn handle_list_fn_nodes(stream: &mut UnixStream) -> Result<()> {
+    let nodes = r#fn::scan_fn_nodes(TMP_PATH.get().unwrap());
+    stream.write_string(&r#fn::serialize_fn_nodes(&nodes))?;
+    Ok(())
+}
+
+fn handle_set_fn_node_enabled(stream: &mut UnixStream) -> Result<()> {
+    let id = stream.read_string()?;
+    let enabled = stream.read_u8()? != 0;
+    match r#fn::set_fn_node_enabled(TMP_PATH.get().unwrap(), &id, enabled) {
+        Ok(()) => stream.write_u8(1)?,
+        Err(e) => {
+            warn!("Failed to set FN node `{}` enabled={}: {}", id, enabled, e);
+            stream.write_u8(0)?;
+        }
+    }
+    Ok(())
+}
+
+fn handle_remove_fn_node(stream: &mut UnixStream) -> Result<()> {
+    let id = stream.read_string()?;
+    match r#fn::mark_fn_node_removed(TMP_PATH.get().unwrap(), &id) {
+        Ok(()) => stream.write_u8(1)?,
+        Err(e) => {
+            warn!("Failed to remove FN node `{}`: {}", id, e);
+            stream.write_u8(0)?;
+        }
+    }
+    Ok(())
+}
+
+/// Streams the active FN entry libraries to the loader: count, then per node
+/// `id`, `triggers`, `scope` (0=all, 1=allowlist, 2=denylist), `apps`,
+/// `priority` (u32), and the entry library as a sealed memfd. The ordering —
+/// priority ascending, then id — defines the FN index space used by
+/// `RequestCompanionSocket` and `GetModuleDir` (offset by the classic module
+/// count, see `handle_request_fn_companion_socket`).
+fn handle_read_fn_modules(stream: &mut UnixStream) -> Result<()> {
+    let nodes = r#fn::active_native_nodes(TMP_PATH.get().unwrap());
+    stream.write_usize(nodes.len())?;
+    for node in &nodes {
+        let entry = node.entry.as_deref().unwrap_or_default();
+        let lib_path = format!("{}/fn/{}/{}", TMP_PATH.get().unwrap(), node.id, entry);
+        let lib_fd = create_library_fd(Path::new(&lib_path))?;
+
+        stream.write_string(&node.id)?;
+        stream.write_string(&node.triggers.join(","))?;
+        stream.write_u8(match node.scope {
+            r#fn::FnScope::All => 0,
+            r#fn::FnScope::Allowlist => 1,
+            r#fn::FnScope::Denylist => 2,
+        })?;
+        stream.write_string(&node.apps.join(","))?;
+        stream.write_u32(node.priority as u32)?;
+        stream.send_fd(lib_fd.as_raw_fd())?;
+        trace!("Sent FN module `{}` ({} bytes) to loader", node.id, entry);
+    }
+    Ok(())
+}
+
+fn handle_get_fn_module_dir(stream: &mut UnixStream) -> Result<()> {
+    let id = stream.read_string()?;
+    match r#fn::get_fn_module_dir(TMP_PATH.get().unwrap(), &id) {
+        Ok(dir) => {
+            stream.send_fd(dir.as_raw_fd())?;
+            Ok(())
+        }
+        Err(e) => {
+            warn!("Failed to open FN node dir `{}`: {}", id, e);
+            Ok(())
+        }
+    }
+}
