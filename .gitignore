@@ -5,3 +5,4 @@ build
 local.properties
 Cargo.lock
 target
+loader/src/external/lsplt/

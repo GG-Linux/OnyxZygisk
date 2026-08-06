@@ -77,3 +77,12 @@ OnyxZygisk is adapted to APatch (KernelPatch) first and foremost: `apd` detectio
 ## Upstream
 
 OnyxZygisk is a fork of [NeoZygisk](https://github.com/JingMatrix/NeoZygisk) by [JingMatrix](https://github.com/JingMatrix).
+
+## Building from source
+
+```sh
+git clone https://github.com/r67373663770-dev/OnyxZygisk.git
+cd OnyxZygisk
+git submodule update --init   # pulls the LSPlt dependency
+./gradlew zipRelease
+```
