@@ -129,6 +129,14 @@ a {
   letter-spacing: -0.2px;
 }
 
+/* root implementation label (top-right of the header) */
+.root-badge {
+  margin-left: auto; white-space: nowrap;
+  font-size: 11px; font-weight: 500; color: var(--text2);
+  padding: 3px 10px; background: var(--surface2);
+  border: 1px solid var(--border-strong); border-radius: 99px;
+}
+
 /* ── page container (single fixed page) ── */
 #page_content {
   max-width: 720px;
