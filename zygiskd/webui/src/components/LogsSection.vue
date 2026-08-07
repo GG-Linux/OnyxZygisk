@@ -9,7 +9,6 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { fetchLogs } from "../api/system";
 import { useLocale } from "../composables/useLocale";
-import Btn from "./atoms/Btn.vue";
 import Toolbar from "./atoms/Toolbar.vue";
 
 const { t } = useLocale();
@@ -62,10 +61,18 @@ onUnmounted(() => window.clearInterval(timer));
       <label>{{ t("logs.lines") }}
         <input type="number" v-model.number="lines" min="50" max="2000">
       </label>
-      <Btn @click="load">{{ t("common.refresh") }}</Btn>
       <label><input type="checkbox" v-model="auto"> {{ t("logs.auto") }}</label>
     </Toolbar>
 
     <pre ref="out" class="log-box"></pre>
+    <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
   </section>
 </template>
+
+<style scoped>
+.refresh-link {
+  padding-top: 4px;
+  font-size: 10px; color: var(--text3); cursor: pointer; text-align: left; opacity: .4;
+}
+.refresh-link:hover { color: var(--primary); opacity: .8; }
+</style>

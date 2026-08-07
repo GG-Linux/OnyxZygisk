@@ -2,9 +2,7 @@
 import { onMounted, ref } from "vue";
 import { fetchState, fmtVer } from "../api/system";
 import { useLocale } from "../composables/useLocale";
-import Btn from "./atoms/Btn.vue";
 import Card from "./atoms/Card.vue";
-import Toolbar from "./atoms/Toolbar.vue";
 import type { ModuleInfo } from "../types";
 
 const { t } = useLocale();
@@ -31,12 +29,10 @@ onMounted(load);
 
 <template>
   <section class="section">
-    <h2 class="section-title">{{ t("navbar.modules") }}</h2>
-
-    <Toolbar>
-      <Btn @click="load">{{ t("common.refresh") }}</Btn>
+    <div class="section-head">
+      <h2 class="section-title">{{ t("navbar.modules") }}</h2>
       <span class="hint">{{ t("modules.hint") }}</span>
-    </Toolbar>
+    </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
     <div v-else-if="error" class="empty">Error: {{ error }}</div>
@@ -60,11 +56,14 @@ onMounted(load);
           </span>
         </div>
       </div>
+      <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
     </Card>
   </section>
 </template>
 
 <style scoped>
+.section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 10px; }
+.section-head .section-title { margin: 0; }
 .mod-row { padding: 10px 0; }
 .mod-row--border { border-top: 1px solid var(--border); }
 .mod-row__main { display: flex; align-items: baseline; gap: 8px; }
@@ -76,4 +75,9 @@ onMounted(load);
 .mod-row__status { font-size: 11px; font-weight: 500; }
 .mod-row__status.on { color: var(--green); }
 .mod-row__status.off { color: var(--text3); }
+.refresh-link {
+  padding-top: 4px;
+  font-size: 10px; color: var(--text3); cursor: pointer; text-align: left; opacity: .4;
+}
+.refresh-link:hover { color: var(--primary); opacity: .8; }
 </style>

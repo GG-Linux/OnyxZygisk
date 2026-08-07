@@ -2,10 +2,8 @@
 import { onMounted, ref } from "vue";
 import { fetchState, fmtVer, setFnEnabled } from "../api/system";
 import { useLocale } from "../composables/useLocale";
-import Btn from "./atoms/Btn.vue";
 import Card from "./atoms/Card.vue";
 import Switch from "./atoms/Switch.vue";
-import Toolbar from "./atoms/Toolbar.vue";
 import type { FnNodeInfo } from "../types";
 
 const { t } = useLocale();
@@ -44,12 +42,10 @@ onMounted(load);
 
 <template>
   <section class="section">
-    <h2 class="section-title">{{ t("navbar.fn") }}</h2>
-
-    <Toolbar>
-      <Btn @click="load">{{ t("common.refresh") }}</Btn>
+    <div class="section-head">
+      <h2 class="section-title">{{ t("navbar.fn") }}</h2>
       <span class="hint">{{ t("fn.hint") }}</span>
-    </Toolbar>
+    </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
     <div v-else-if="error" class="empty">Error: {{ error }}</div>
@@ -75,6 +71,7 @@ onMounted(load);
           @update:checked="toggle(n, $event)"
         />
       </div>
+      <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
     </Card>
 
     <div class="msg">{{ msg }}</div>
@@ -82,6 +79,8 @@ onMounted(load);
 </template>
 
 <style scoped>
+.section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 10px; }
+.section-head .section-title { margin: 0; }
 .fn-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; gap: 12px; }
 .fn-row--border { border-top: 1px solid var(--border); }
 .fn-row__left { flex: 1; min-width: 0; }
@@ -89,4 +88,9 @@ onMounted(load);
 .fn-row__name { font-size: 14px; font-weight: 600; }
 .fn-row__ver { font-size: 12px; color: var(--text3); }
 .fn-row__meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.refresh-link {
+  padding-top: 4px;
+  font-size: 10px; color: var(--text3); cursor: pointer; text-align: left; opacity: .4;
+}
+.refresh-link:hover { color: var(--primary); opacity: .8; }
 </style>
