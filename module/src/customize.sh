@@ -113,9 +113,9 @@ extract "$ZIPFILE" 'uninstall.sh'      "$MODPATH"
 mv "$TMPDIR/sepolicy.rule" "$MODPATH"
 
 ui_print "- Extracting WebUI (webroot)"
-# SKIPUNZIP=1 模式下 webroot 必须手动解压，否则管理器找不到页面
+# With SKIPUNZIP=1 the webroot must be extracted manually, or the manager won't find the page
 unzip -o "$ZIPFILE" 'webroot/*' -d "$MODPATH" >&2 || abort_verify "Failed to extract webroot"
-# 校验文件只用于安装期验证，不留存在模块里
+# Checksum files are only used for install-time verification; don't keep them in the module
 find "$MODPATH/webroot" -name '*.sha256' -delete
 if [ ! -f "$MODPATH/webroot/index.html" ]; then
   ui_print "! Warning: webroot/index.html not found after extraction"

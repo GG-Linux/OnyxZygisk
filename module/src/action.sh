@@ -20,8 +20,8 @@ fi
 
 echo
 echo "WebUI (webroot): /data/adb/modules/onyxzygisk/webroot/"
-echo "  在 KernelSU / APatch Manager 或 MMRL 的模块页中打开 WebUI"
-echo "  （页面由 Manager 的 WebView 直接读取，无需网络/端口）"
+echo "  Open the WebUI from the module page in KernelSU / APatch Manager or MMRL"
+echo "  (The page is read directly by the Manager's WebView; no network or port is needed)"
 
 if [ -z "$MMRL" ] && { [ -n "$KSU" ] || [ -n "$APATCH" ]; }; then
 	# Avoid instant exit on KernelSU or APatch
