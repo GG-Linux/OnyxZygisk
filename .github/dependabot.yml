@@ -1,0 +1,21 @@
+# Dependabot — GitHub 官方依赖更新机器人
+# 自动检查依赖新版本并开 PR，由管理员审阅后合并。
+version: 2
+updates:
+  # WebUI (Vue 3 + Vite + TypeScript) 依赖
+  - package-ecosystem: "npm"
+    directory: "/zygiskd/webui"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+
+  # Gradle / AGP / Kotlin 依赖
+  - package-ecosystem: "gradle"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
