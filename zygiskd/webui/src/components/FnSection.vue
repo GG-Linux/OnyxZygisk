@@ -47,6 +47,14 @@ watch(locale, () => load());
     <div class="section-head">
       <h2 class="section-title">{{ t("navbar.fn") }}</h2>
       <span class="hint">{{ t("fn.hint") }}</span>
+      <button
+        type="button"
+        class="icon-btn head-refresh"
+        :aria-label="t('common.refresh')"
+        @click="load"
+      >
+        <span class="icon-btn__glyph icon-btn__glyph--refresh"></span>
+      </button>
     </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
@@ -63,7 +71,6 @@ watch(locale, () => load());
         </div>
         <Switch :checked="n.status === 'enabled'" @update:checked="toggle(n, $event)" />
       </div>
-      <button type="button" class="link-btn" @click="load">{{ t("common.refresh") }}</button>
     </Card>
 
     <div class="msg">{{ msg }}</div>

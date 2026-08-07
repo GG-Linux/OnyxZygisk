@@ -34,6 +34,14 @@ watch(locale, () => load());
     <div class="section-head">
       <h2 class="section-title">{{ t("navbar.modules") }}</h2>
       <span class="hint">{{ t("modules.hint") }}</span>
+      <button
+        type="button"
+        class="icon-btn head-refresh"
+        :aria-label="t('common.refresh')"
+        @click="load"
+      >
+        <span class="icon-btn__glyph icon-btn__glyph--refresh"></span>
+      </button>
     </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
@@ -53,7 +61,6 @@ watch(locale, () => load());
           </span>
         </div>
       </div>
-      <button type="button" class="link-btn" @click="load">{{ t("common.refresh") }}</button>
     </Card>
   </section>
 </template>

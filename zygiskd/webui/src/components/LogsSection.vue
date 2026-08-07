@@ -190,50 +190,6 @@ watch(filter, () => render());
   min-width: 72px;
   width: auto;
 }
-/* ── icon buttons (mask-rendered theme-colored glyphs) ── */
-.icon-btn {
-  width: 34px;
-  height: 34px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-.icon-btn:hover {
-  background: var(--surface2);
-}
-.icon-btn:active {
-  transform: scale(0.92);
-}
-.icon-btn--ok:hover {
-  background: var(--green-bg);
-}
-.icon-btn__glyph {
-  width: 20px;
-  height: 20px;
-  background-color: var(--text2);
-  -webkit-mask-image: url("/icons/copy.svg");
-  mask-image: url("/icons/copy.svg");
-  -webkit-mask-size: contain;
-  mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-  mask-position: center;
-}
-.icon-btn__glyph--refresh {
-  -webkit-mask-image: url("/icons/refresh.svg");
-  mask-image: url("/icons/refresh.svg");
-}
-.icon-btn__glyph--ok {
-  background-color: var(--green);
-  -webkit-mask-image: url("/icons/check.svg");
-  mask-image: url("/icons/check.svg");
-}
 .lg-lv {
   font-weight: 700;
 }
