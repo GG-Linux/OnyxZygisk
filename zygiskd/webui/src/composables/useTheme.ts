@@ -20,9 +20,7 @@ export function setThemePref(t: ThemePref): void {
 
 function resolve(pref: ThemePref): ResolvedTheme {
   if (pref === "system") {
-    const dark =
-      window.matchMedia &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
     return dark ? "dark" : "light";
   }
   return pref as ResolvedTheme;

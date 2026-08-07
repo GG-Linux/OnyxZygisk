@@ -19,9 +19,7 @@ type Messages = typeof en;
 
 const messages: Record<LocaleCode, Messages> = { en_US: en, zh_CN: zh };
 
-const locale = ref<LocaleCode>(
-  (localStorage.getItem(KEY) as LocaleCode) || "en_US",
-);
+const locale = ref<LocaleCode>((localStorage.getItem(KEY) as LocaleCode) || "en_US");
 
 function lookup(dict: Messages, key: string): string | undefined {
   return key.split(".").reduce<unknown>((o, k) => {

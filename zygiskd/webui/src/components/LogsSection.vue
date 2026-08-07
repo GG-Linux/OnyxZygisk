@@ -58,10 +58,11 @@ onUnmounted(() => window.clearInterval(timer));
     <h2 class="section-title">{{ t("navbar.logs") }}</h2>
 
     <Toolbar>
-      <label>{{ t("logs.lines") }}
-        <input type="number" v-model.number="lines" min="50" max="2000">
+      <label
+        >{{ t("logs.lines") }}
+        <input type="number" v-model.number="lines" min="50" max="2000" />
       </label>
-      <label><input type="checkbox" v-model="auto"> {{ t("logs.auto") }}</label>
+      <label><input type="checkbox" v-model="auto" /> {{ t("logs.auto") }}</label>
     </Toolbar>
 
     <pre ref="out" class="log-box"></pre>
@@ -72,7 +73,14 @@ onUnmounted(() => window.clearInterval(timer));
 <style scoped>
 .refresh-link {
   padding-top: 4px;
-  font-size: 10px; color: var(--text3); cursor: pointer; text-align: left; opacity: .4;
+  font-size: 10px;
+  color: var(--text3);
+  cursor: pointer;
+  text-align: left;
+  opacity: 0.4;
 }
-.refresh-link:hover { color: var(--primary); opacity: .8; }
+.refresh-link:hover {
+  color: var(--primary);
+  opacity: 0.8;
+}
 </style>

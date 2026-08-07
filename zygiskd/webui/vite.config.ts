@@ -10,7 +10,9 @@
 //    native ES modules + dynamic `import()` and is proven to work in the host
 //    WebViews; disabling Vite's module-preload links keeps the output as close
 //    to that proven shape as possible (no extra file:// fetches up front).
-import { defineConfig } from "vite";
+//
+// The `test` block configures Vitest (unit tests run in jsdom).
+import { defineConfig } from "vitest/config";
 import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
@@ -21,5 +23,9 @@ export default defineConfig({
     outDir: "dist",
     modulePreload: false,
     assetsInlineLimit: 4096,
+  },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["src/test/setup.ts"],
   },
 });

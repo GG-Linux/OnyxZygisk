@@ -22,8 +22,7 @@ function bridgeRaw(cmd: string): Promise<ExecResult> {
   const host = detectBridge();
   if (host === "ksu") {
     return new Promise((resolve, reject) => {
-      const name =
-        "ksu_exec_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
+      const name = "ksu_exec_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
       window[name] = (errno: number, stdout: string, stderr: string) => {
         delete window[name];
         resolve({ errno: errno || 0, stdout: stdout || "", stderr: stderr || "" });
@@ -46,7 +45,7 @@ function bridgeRaw(cmd: string): Promise<ExecResult> {
           stderr: r.stderr || "",
         }));
       }
-    } catch (e) {
+    } catch {
       /* fall through to callback style */
     }
     return new Promise((resolve) => {
@@ -75,7 +74,7 @@ function b64ToUtf8(b64: string): string {
     const bytes = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return new TextDecoder("utf-8").decode(bytes);
-  } catch (e) {
+  } catch {
     return String(b64);
   }
 }
@@ -94,7 +93,7 @@ export function toast(msg: string): void {
     if (host === "ksu") window.ksu!.toast(msg);
     else if (host === "mmrl" && window.mmrl!.toast) window.mmrl!.toast(msg);
     else console.log("[toast]", msg);
-  } catch (e) {
+  } catch {
     console.log("[toast]", msg);
   }
 }

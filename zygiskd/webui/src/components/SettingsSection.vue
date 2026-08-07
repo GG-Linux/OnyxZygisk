@@ -57,7 +57,17 @@ function onLang(e: Event): void {
 </template>
 
 <style scoped>
-.setting-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
-.setting-row + .setting-row { border-top: 1px solid var(--border); }
-.setting-row .s-label { font-size: 14px; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+.setting-row + .setting-row {
+  border-top: 1px solid var(--border);
+}
+.setting-row .s-label {
+  font-size: 14px;
+}
 </style>

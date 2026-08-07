@@ -14,9 +14,19 @@ export function devResponse(cmd: string): string {
   }
   if (cmd.indexOf("@@fn") !== -1) {
     return [
-      "version=1.0", "root=KernelSU", "z64=1", "z32=1", "daemon=1", "workdir=/data/adb/onyxzygisk",
+      "version=1.0",
+      "root=KernelSU",
+      "z64=1",
+      "z32=1",
+      "daemon=1",
+      "workdir=/data/adb/onyxzygisk",
       "@@monitor",
-      "\tOnyxZygisk\tv1.0", "\tmonitor: \t tracing", "", "\tzygote64:\t injected", "\tdaemon64:\t running", "",
+      "\tOnyxZygisk\tv1.0",
+      "\tmonitor: \t tracing",
+      "",
+      "\tzygote64:\t injected",
+      "\tdaemon64:\t running",
+      "",
       "@@modules",
       "M|playintegrityfix|Play Integrity Fix|v18.8|chiteroman|1|0|修复 Play Integrity 认证 ",
       "M|tricky_store|Tricky Store|v1.2.1|5ec1cff|1|0|在 TEE 损坏设备上伪造 keybox",

@@ -1,0 +1,6 @@
+# pnpm 11: package-manager settings live in pnpm-workspace.yaml (the `pnpm`
+# field in package.json is no longer read). Approve esbuild's postinstall so
+# its native binary is set up; without this pnpm blocks it and vite/vitest
+# break at runtime.
+allowBuilds:
+  esbuild: true
