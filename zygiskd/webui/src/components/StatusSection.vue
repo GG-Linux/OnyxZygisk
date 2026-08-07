@@ -2,15 +2,16 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { fetchState, parseMonitor } from "../api/system";
 import { useLocale } from "../composables/useLocale";
+import { useRoot } from "../composables/useRoot";
 import Card from "../components/atoms/Card.vue";
 import type { MonitorRow } from "../types";
 
 const { t } = useLocale();
+const { setRoot } = useRoot();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
 const monitor = ref<MonitorRow[]>([]);
-const rootImpl = ref("");
 
 let timer: number | undefined;
 
@@ -24,7 +25,7 @@ function valClass(v: string): string {
 async function load() {
   try {
     const d = await fetchState();
-    rootImpl.value = d.keys.root || "";
+    setRoot(d.keys.root || "");
     monitor.value = parseMonitor(d.monitor);
     error.value = null;
   } catch (e) {
@@ -58,10 +59,6 @@ onUnmounted(() => window.clearInterval(timer));
       </div>
       <div v-else class="monitor-empty">{{ t("status.noStatus") }}</div>
     </Card>
-
-    <div v-if="rootImpl" class="root-label">
-      <span class="root-label__text">{{ rootImpl }}</span>
-    </div>
   </section>
 </template>
 
@@ -81,9 +78,4 @@ onUnmounted(() => window.clearInterval(timer));
   color: var(--text2); word-break: break-all;
 }
 .monitor-empty { color: var(--text3); font-size: 13px; padding: 4px 0; }
-
-.root-label {
-  padding: 8px 0 0; font-size: 12px;
-}
-.root-label__text { font-weight: 600; color: var(--text3); }
 </style>
