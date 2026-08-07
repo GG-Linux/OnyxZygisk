@@ -9,6 +9,7 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import { fetchLogs } from "../api/system";
 import { useLocale } from "../composables/useLocale";
+import Card from "./atoms/Card.vue";
 import Toolbar from "./atoms/Toolbar.vue";
 
 const { t } = useLocale();
@@ -57,30 +58,25 @@ onUnmounted(() => window.clearInterval(timer));
   <section class="section">
     <h2 class="section-title">{{ t("navbar.logs") }}</h2>
 
-    <Toolbar>
-      <label
-        >{{ t("logs.lines") }}
-        <input type="number" v-model.number="lines" min="50" max="2000" />
-      </label>
-      <label><input type="checkbox" v-model="auto" /> {{ t("logs.auto") }}</label>
-    </Toolbar>
+    <Card>
+      <Toolbar>
+        <label
+          >{{ t("logs.lines") }}
+          <input type="number" v-model.number="lines" min="50" max="2000" />
+        </label>
+        <label><input type="checkbox" v-model="auto" /> {{ t("logs.auto") }}</label>
+        <button type="button" class="link-btn toolbar-refresh" @click="load">
+          {{ t("common.refresh") }}
+        </button>
+      </Toolbar>
 
-    <pre ref="out" class="log-box"></pre>
-    <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
+      <pre ref="out" class="log-box"></pre>
+    </Card>
   </section>
 </template>
 
 <style scoped>
-.refresh-link {
-  padding-top: 4px;
-  font-size: 10px;
-  color: var(--text3);
-  cursor: pointer;
-  text-align: left;
-  opacity: 0.4;
-}
-.refresh-link:hover {
-  color: var(--primary);
-  opacity: 0.8;
+.toolbar-refresh {
+  margin: 0 0 0 auto;
 }
 </style>

@@ -20,6 +20,9 @@
     "zygote": "Zygote",
     "running": "运行中",
     "stopped": "已停止",
+    "working": "工作中",
+    "unknown": "未知",
+    "error": "错误",
     "none": "无",
     "noStatus": "（无监控器状态）"
   },

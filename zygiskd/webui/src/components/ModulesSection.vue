@@ -38,12 +38,7 @@ onMounted(load);
     <div v-else-if="error" class="empty">Error: {{ error }}</div>
     <div v-else-if="!modules.length" class="empty">{{ t("modules.empty") }}</div>
     <Card v-else>
-      <div
-        v-for="(m, i) in modules"
-        :key="m.id"
-        class="mod-row"
-        :class="{ 'mod-row--border': i > 0 }"
-      >
+      <div v-for="m in modules" :key="m.id" class="mod-row list-row">
         <div class="mod-row__main">
           <span class="mod-row__name">{{ m.name || m.id }}</span>
           <span class="mod-row__ver">{{ fmtVer(m.version) }}</span>
@@ -56,27 +51,12 @@ onMounted(load);
           </span>
         </div>
       </div>
-      <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
+      <button type="button" class="link-btn" @click="load">{{ t("common.refresh") }}</button>
     </Card>
   </section>
 </template>
 
 <style scoped>
-.section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 0 2px 10px;
-}
-.section-head .section-title {
-  margin: 0;
-}
-.mod-row {
-  padding: 10px 0;
-}
-.mod-row--border {
-  border-top: 1px solid var(--border);
-}
 .mod-row__main {
   display: flex;
   align-items: baseline;
@@ -114,17 +94,5 @@ onMounted(load);
 }
 .mod-row__status.off {
   color: var(--text3);
-}
-.refresh-link {
-  padding-top: 4px;
-  font-size: 10px;
-  color: var(--text3);
-  cursor: pointer;
-  text-align: left;
-  opacity: 0.4;
-}
-.refresh-link:hover {
-  color: var(--primary);
-  opacity: 0.8;
 }
 </style>

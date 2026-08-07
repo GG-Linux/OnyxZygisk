@@ -20,6 +20,9 @@
     "zygote": "Zygote",
     "running": "Running",
     "stopped": "Stopped",
+    "working": "Working",
+    "unknown": "Unknown",
+    "error": "Error",
     "none": "None",
     "noStatus": "(no monitor status)"
   },

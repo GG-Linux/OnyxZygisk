@@ -51,7 +51,7 @@ onMounted(load);
     <div v-else-if="error" class="empty">Error: {{ error }}</div>
     <div v-else-if="!nodes.length" class="empty">{{ t("fn.empty") }}</div>
     <Card v-else>
-      <div v-for="(n, i) in nodes" :key="n.id" class="fn-row" :class="{ 'fn-row--border': i > 0 }">
+      <div v-for="n in nodes" :key="n.id" class="fn-row list-row">
         <div class="fn-row__left">
           <div class="fn-row__main">
             <span class="fn-row__name">{{ n.name || n.id }}</span>
@@ -61,7 +61,7 @@ onMounted(load);
         </div>
         <Switch :checked="n.status === 'enabled'" @update:checked="toggle(n, $event)" />
       </div>
-      <div class="refresh-link" @click="load">{{ t("common.refresh") }}</div>
+      <button type="button" class="link-btn" @click="load">{{ t("common.refresh") }}</button>
     </Card>
 
     <div class="msg">{{ msg }}</div>
@@ -69,24 +69,11 @@ onMounted(load);
 </template>
 
 <style scoped>
-.section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 0 2px 10px;
-}
-.section-head .section-title {
-  margin: 0;
-}
 .fn-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 0;
   gap: 12px;
-}
-.fn-row--border {
-  border-top: 1px solid var(--border);
 }
 .fn-row__left {
   flex: 1;
@@ -109,17 +96,5 @@ onMounted(load);
   font-size: 11px;
   color: var(--text3);
   margin-top: 2px;
-}
-.refresh-link {
-  padding-top: 4px;
-  font-size: 10px;
-  color: var(--text3);
-  cursor: pointer;
-  text-align: left;
-  opacity: 0.4;
-}
-.refresh-link:hover {
-  color: var(--primary);
-  opacity: 0.8;
 }
 </style>

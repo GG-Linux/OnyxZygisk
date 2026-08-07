@@ -8,8 +8,13 @@ import StatusSection from "./components/StatusSection.vue";
 
 <template>
   <header class="app-header">
-    <div class="header-icon"><img src="/tux.png" alt="Tux" width="36" height="36" /></div>
-    <h1 class="header-title">OnyxZygisk</h1>
+    <div class="app-header__inner">
+      <div class="header-icon"><img src="/tux.png" alt="Tux" width="26" height="26" /></div>
+      <div class="header-titles">
+        <h1 class="header-title">OnyxZygisk</h1>
+        <span class="header-sub">Zygisk via ptrace</span>
+      </div>
+    </div>
   </header>
 
   <div id="page_content">
