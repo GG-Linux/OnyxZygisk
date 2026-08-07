@@ -6,11 +6,15 @@
     "logs": "Logs",
     "settings": "Settings"
   },
+  "header": {
+    "subtitle": "Zygisk via ptrace"
+  },
   "common": {
     "loading": "Loading...",
     "refresh": "Refresh",
     "enabled": "Enabled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "error": "Error"
   },
   "status": {
     "monitor": "Monitor",

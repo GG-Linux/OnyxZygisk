@@ -6,13 +6,13 @@
  * the old version) on purpose: going through Vue's renderer would reset the
  * scroll position on every update.
  */
-import { onMounted, onUnmounted, ref } from "vue";
+import { onMounted, onUnmounted, ref, watch } from "vue";
 import { fetchLogs } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import Card from "./atoms/Card.vue";
 import Toolbar from "./atoms/Toolbar.vue";
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const out = ref<HTMLPreElement | null>(null);
 const lines = ref(200);
@@ -41,7 +41,7 @@ async function load() {
       el.scrollTop = scrollTop;
     }
   } catch (e) {
-    el.textContent = "Error: " + (e instanceof Error ? e.message : String(e));
+    el.textContent = t("common.error") + ": " + (e instanceof Error ? e.message : String(e));
   }
 }
 
@@ -52,6 +52,8 @@ onMounted(() => {
   }, 8000);
 });
 onUnmounted(() => window.clearInterval(timer));
+// Reload on language switch (dev mock data follows the locale).
+watch(locale, () => load());
 </script>
 
 <template>

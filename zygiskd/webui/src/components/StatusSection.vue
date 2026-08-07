@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { fetchState, fmtVer, parseMonitor } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import Card from "../components/atoms/Card.vue";
 import type { MonitorRow } from "../types";
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -54,6 +54,8 @@ onMounted(() => {
   timer = window.setInterval(load, 6000);
 });
 onUnmounted(() => window.clearInterval(timer));
+// Reload on language switch (dev mock data follows the locale).
+watch(locale, () => load());
 </script>
 
 <template>
@@ -80,7 +82,7 @@ onUnmounted(() => window.clearInterval(timer));
 
     <Card :title="t('status.monitor')">
       <div v-if="loading" class="monitor-empty">{{ t("common.loading") }}</div>
-      <div v-else-if="error" class="monitor-empty">Error: {{ error }}</div>
+      <div v-else-if="error" class="monitor-empty">{{ t("common.error") }}: {{ error }}</div>
       <div v-else-if="monitor.length" class="monitor-list">
         <div v-for="(r, i) in monitor" :key="i">
           <div v-if="r.label" class="monitor-row">

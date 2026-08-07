@@ -6,11 +6,15 @@
     "logs": "日志",
     "settings": "设置"
   },
+  "header": {
+    "subtitle": "基于 ptrace 的 Zygisk"
+  },
   "common": {
     "loading": "加载中…",
     "refresh": "刷新",
     "enabled": "已启用",
-    "disabled": "已禁用"
+    "disabled": "已禁用",
+    "error": "错误"
   },
   "status": {
     "monitor": "监控器",

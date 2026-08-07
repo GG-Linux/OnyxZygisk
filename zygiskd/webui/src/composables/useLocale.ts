@@ -21,6 +21,13 @@ const messages: Record<LocaleCode, Messages> = { en_US: en, zh_CN: zh };
 
 const locale = ref<LocaleCode>((localStorage.getItem(KEY) as LocaleCode) || "en_US");
 
+/** Shared reactive locale (module singleton) — used e.g. by the dev mock. */
+export const currentLocale = locale;
+
+// Sync <html lang> once at startup so a11y/browser translation matches the
+// restored preference before any setLocale() call.
+document.documentElement.lang = locale.value.replace("_", "-");
+
 function lookup(dict: Messages, key: string): string | undefined {
   return key.split(".").reduce<unknown>((o, k) => {
     if (o == null) return undefined;
@@ -29,11 +36,20 @@ function lookup(dict: Messages, key: string): string | undefined {
 }
 
 export function useLocale() {
-  const t = (key: string): string => lookup(messages[locale.value], key) ?? key;
+  const t = (key: string): string => {
+    const text = lookup(messages[locale.value], key);
+    if (text == null) {
+      if (import.meta.env.DEV) console.warn(`[i18n] missing key: ${key}`);
+      return key;
+    }
+    return text;
+  };
 
   function setLocale(l: LocaleCode): void {
     locale.value = l;
     localStorage.setItem(KEY, l);
+    // Keep <html lang> in sync for a11y and browser translation.
+    document.documentElement.lang = l.replace("_", "-");
   }
 
   return {

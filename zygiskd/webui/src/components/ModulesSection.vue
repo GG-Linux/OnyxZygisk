@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { fetchState, fmtVer } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import Card from "./atoms/Card.vue";
 import type { ModuleInfo } from "../types";
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const modules = ref<ModuleInfo[]>([]);
 const loading = ref(true);
@@ -25,6 +25,8 @@ async function load() {
 }
 
 onMounted(load);
+// Reload on language switch (dev mock data follows the locale).
+watch(locale, () => load());
 </script>
 
 <template>
@@ -35,7 +37,7 @@ onMounted(load);
     </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
-    <div v-else-if="error" class="empty">Error: {{ error }}</div>
+    <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
     <div v-else-if="!modules.length" class="empty">{{ t("modules.empty") }}</div>
     <Card v-else>
       <div v-for="m in modules" :key="m.id" class="mod-row list-row">

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { onMounted, ref, watch } from "vue";
 import { fetchState, fmtVer, setFnEnabled } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import Card from "./atoms/Card.vue";
 import Switch from "./atoms/Switch.vue";
 import type { FnNodeInfo } from "../types";
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const nodes = ref<FnNodeInfo[]>([]);
 const loading = ref(true);
@@ -38,6 +38,8 @@ async function toggle(n: FnNodeInfo, enabled: boolean) {
 }
 
 onMounted(load);
+// Reload on language switch (dev mock data follows the locale).
+watch(locale, () => load());
 </script>
 
 <template>
@@ -48,7 +50,7 @@ onMounted(load);
     </div>
 
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
-    <div v-else-if="error" class="empty">Error: {{ error }}</div>
+    <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
     <div v-else-if="!nodes.length" class="empty">{{ t("fn.empty") }}</div>
     <Card v-else>
       <div v-for="n in nodes" :key="n.id" class="fn-row list-row">
