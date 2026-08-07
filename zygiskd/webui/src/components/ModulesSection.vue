@@ -1,64 +1,36 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
-import { fetchState, fmtVer } from "../api/system";
+import { inject } from "vue";
+import { fmtVer } from "../api/system";
 import { useLocale } from "../composables/useLocale";
+import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
+import type { MonitorState } from "../composables/useMonitorState";
 import Card from "./atoms/Card.vue";
-import type { ModuleInfo } from "../types";
 
-const { t, locale } = useLocale();
-
-const modules = ref<ModuleInfo[]>([]);
-const loading = ref(true);
-const error = ref<string | null>(null);
-
-async function load() {
-  loading.value = true;
-  try {
-    const d = await fetchState();
-    modules.value = d.modules;
-    error.value = null;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(load);
-// Reload on language switch (dev mock data follows the locale).
-watch(locale, () => load());
+const { t } = useLocale();
+// Shared 6s-polled state (provided by App.vue); local fallback for standalone mounts.
+const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
+const { loading, error, modules } = state;
 </script>
 
 <template>
   <section class="section">
-    <div class="section-head">
-      <h2 class="section-title">{{ t("navbar.modules") }}</h2>
-      <span class="hint">{{ t("modules.hint") }}</span>
-      <button
-        type="button"
-        class="icon-btn head-refresh"
-        :aria-label="t('common.refresh')"
-        @click="load"
-      >
-        <span class="icon-btn__glyph icon-btn__glyph--refresh"></span>
-      </button>
-    </div>
-
-    <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
-    <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
-    <div v-else-if="!modules.length" class="empty">{{ t("modules.empty") }}</div>
-    <Card v-else>
-      <div v-for="m in modules" :key="m.id" class="mod-row list-row">
-        <div class="mod-row__main">
-          <span class="mod-row__name">{{ m.name || m.id }}</span>
-          <span class="mod-row__ver">{{ fmtVer(m.version) }}</span>
-        </div>
-        <div v-if="m.desc" class="mod-row__desc">{{ m.desc }}</div>
-        <div class="mod-row__foot">
-          <span class="mod-row__author">{{ m.author || t("modules.unknownAuthor") }}</span>
-          <span class="mod-row__status" :class="m.disabled ? 'off' : 'on'">
-            {{ m.disabled ? t("common.disabled") : t("common.enabled") }}
-          </span>
+    <Card :title="t('navbar.modules')">
+      <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
+      <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
+      <div v-else-if="!modules.length" class="empty">{{ t("modules.empty") }}</div>
+      <div v-else>
+        <div v-for="m in modules" :key="m.id" class="mod-row list-row">
+          <div class="mod-row__main">
+            <span class="mod-row__name">{{ m.name || m.id }}</span>
+            <span class="mod-row__ver">{{ fmtVer(m.version) }}</span>
+          </div>
+          <div v-if="m.desc" class="mod-row__desc">{{ m.desc }}</div>
+          <div class="mod-row__foot">
+            <span class="mod-row__author">{{ m.author || t("modules.unknownAuthor") }}</span>
+            <span class="mod-row__status" :class="m.disabled ? 'off' : 'on'">
+              {{ m.disabled ? t("common.disabled") : t("common.enabled") }}
+            </span>
+          </div>
         </div>
       </div>
     </Card>

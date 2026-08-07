@@ -137,28 +137,6 @@ a {
 .section:first-child {
   margin-top: 6px;
 }
-.section-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text2);
-  margin: 0 4px 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-}
-.section-head {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 0 4px 10px;
-  flex-wrap: wrap;
-}
-.section-head .section-title {
-  margin: 0;
-}
-.section-head .icon-btn {
-  align-self: center;
-  margin-left: auto;
-}
 
 /* ── cards ── */
 .card {

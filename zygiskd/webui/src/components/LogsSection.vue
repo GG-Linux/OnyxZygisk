@@ -144,9 +144,7 @@ watch(filter, () => render());
 
 <template>
   <section class="section">
-    <h2 class="section-title">{{ t("navbar.logs") }}</h2>
-
-    <Card>
+    <Card :title="t('navbar.logs')">
       <Toolbar>
         <label class="log-lines"
           >{{ t("logs.lines") }}

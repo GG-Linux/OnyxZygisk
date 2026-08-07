@@ -24,9 +24,7 @@ function valClass(v: string): string {
 
 <template>
   <section class="section">
-    <h2 class="section-title">{{ t("navbar.status") }}</h2>
-
-    <Card :title="t('status.monitor')">
+    <Card :title="t('navbar.status')">
       <div v-if="loading" class="monitor-empty">{{ t("common.loading") }}</div>
       <div v-else-if="error" class="monitor-empty">{{ t("common.error") }}: {{ error }}</div>
       <div v-else-if="monitor.length" class="monitor-list">

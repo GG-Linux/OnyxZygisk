@@ -1,30 +1,19 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
-import { fetchState, fmtVer, setFnEnabled } from "../api/system";
+import { inject, ref } from "vue";
+import { fmtVer, setFnEnabled } from "../api/system";
 import { useLocale } from "../composables/useLocale";
+import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
+import type { MonitorState } from "../composables/useMonitorState";
 import Card from "./atoms/Card.vue";
 import Switch from "./atoms/Switch.vue";
 import type { FnNodeInfo } from "../types";
 
-const { t, locale } = useLocale();
+const { t } = useLocale();
+// Shared 6s-polled state (provided by App.vue); local fallback for standalone mounts.
+const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
+const { loading, error, fns, load } = state;
 
-const nodes = ref<FnNodeInfo[]>([]);
-const loading = ref(true);
-const error = ref<string | null>(null);
 const msg = ref("");
-
-async function load() {
-  loading.value = true;
-  try {
-    const d = await fetchState();
-    nodes.value = d.fns;
-    error.value = null;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
-}
 
 async function toggle(n: FnNodeInfo, enabled: boolean) {
   msg.value = "";
@@ -36,44 +25,29 @@ async function toggle(n: FnNodeInfo, enabled: boolean) {
     msg.value = e instanceof Error ? e.message : String(e);
   }
 }
-
-onMounted(load);
-// Reload on language switch (dev mock data follows the locale).
-watch(locale, () => load());
 </script>
 
 <template>
   <section class="section">
-    <div class="section-head">
-      <h2 class="section-title">{{ t("navbar.fn") }}</h2>
-      <span class="hint">{{ t("fn.hint") }}</span>
-      <button
-        type="button"
-        class="icon-btn head-refresh"
-        :aria-label="t('common.refresh')"
-        @click="load"
-      >
-        <span class="icon-btn__glyph icon-btn__glyph--refresh"></span>
-      </button>
-    </div>
-
-    <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
-    <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
-    <div v-else-if="!nodes.length" class="empty">{{ t("fn.empty") }}</div>
-    <Card v-else>
-      <div v-for="n in nodes" :key="n.id" class="fn-row list-row">
-        <div class="fn-row__left">
-          <div class="fn-row__main">
-            <span class="fn-row__name">{{ n.name || n.id }}</span>
-            <span class="fn-row__ver">{{ fmtVer(n.version) }}</span>
+    <Card :title="t('navbar.fn')">
+      <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
+      <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
+      <div v-else-if="!fns.length" class="empty">{{ t("fn.empty") }}</div>
+      <template v-else>
+        <div v-for="n in fns" :key="n.id" class="fn-row list-row">
+          <div class="fn-row__left">
+            <div class="fn-row__main">
+              <span class="fn-row__name">{{ n.name || n.id }}</span>
+              <span class="fn-row__ver">{{ fmtVer(n.version) }}</span>
+            </div>
+            <div class="fn-row__meta">{{ n.trigger || "app" }} / {{ n.scope || "all" }}</div>
           </div>
-          <div class="fn-row__meta">{{ n.trigger || "app" }} / {{ n.scope || "all" }}</div>
+          <Switch :checked="n.status === 'enabled'" @update:checked="toggle(n, $event)" />
         </div>
-        <Switch :checked="n.status === 'enabled'" @update:checked="toggle(n, $event)" />
-      </div>
-    </Card>
+      </template>
 
-    <div class="msg">{{ msg }}</div>
+      <div class="msg">{{ msg }}</div>
+    </Card>
   </section>
 </template>
 

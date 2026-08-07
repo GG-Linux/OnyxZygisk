@@ -29,9 +29,7 @@ function onLang(e: Event): void {
 
 <template>
   <section class="section">
-    <h2 class="section-title">{{ t("navbar.settings") }}</h2>
-
-    <Card :title="t('settings.appearance')">
+    <Card :title="t('navbar.settings')">
       <div class="setting-row">
         <span class="s-label">{{ t("settings.theme") }}</span>
         <select :value="theme" @change="onTheme">
