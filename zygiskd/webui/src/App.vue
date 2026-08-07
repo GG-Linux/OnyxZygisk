@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* App — the single fixed page: header + all five sections stacked.
- * The header sub-title and host badge are driven by the shared system state
- * that the status section refreshes on every poll. */
+ * The header sub-title is driven by the shared system state that the status
+ * section refreshes on every poll (version · root). */
 import { computed } from "vue";
 import { useSystemState } from "./composables/useSystemState";
 import FnSection from "./components/FnSection.vue";
@@ -17,13 +17,6 @@ const headerSub = computed(() =>
     ? `${state.version} · ${state.root}`
     : "Zygisk Implementation",
 );
-
-const badgeText = computed(() =>
-  state.host === "ksu" ? "KSU" : state.host === "mmrl" ? "MMRL" : "DEV",
-);
-const badgeClass = computed(() =>
-  state.host ? "header-badge ok" : "header-badge",
-);
 </script>
 
 <template>
@@ -33,7 +26,6 @@ const badgeClass = computed(() =>
       <h1>OnyxZygisk</h1>
       <div class="sub">{{ headerSub }}</div>
     </div>
-    <span :class="badgeClass">{{ badgeText }}</span>
   </header>
 
   <div id="page_content">

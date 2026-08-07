@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* Status section — the summary grid (version / root / daemon / zygote) plus
  * the ptrace monitor status card. Polls every 6s like the old version, and
- * refreshes the shared header state (version · root, host badge). */
+ * refreshes the shared header state (version · root). */
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { fetchState, fmtVer, parseMonitor } from "../api/system";
 import { useLocale } from "../composables/useLocale";
@@ -10,7 +10,7 @@ import Card from "../components/atoms/Card.vue";
 import type { MonitorRow } from "../types";
 
 const { t } = useLocale();
-const { state, refreshHost } = useSystemState();
+const { state } = useSystemState();
 
 const loading = ref(true);
 const error = ref<string | null>(null);
@@ -44,7 +44,7 @@ async function load() {
     // header globals
     state.version = fmtVer(k.version);
     state.root = k.root || "unknown";
-    refreshHost();
+
 
     monitor.value = parseMonitor(d.monitor);
     error.value = null;
