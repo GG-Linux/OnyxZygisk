@@ -16,7 +16,7 @@ A **ptrace-based Zygisk implementation** for **APatch** & **KernelSU** — with 
 
 ## Highlights
 
-- **Built-in WebUI** — a multi-page control panel served from `webroot/`, opened directly by KernelSU / APatch Manager / MMRL. Dashboard, module list, FN management, logcat viewer, and an APatch page. Light / dark / AMOLED themes and multi-language. See [docs/WEBUI.md](docs/WEBUI.md).
+- **Built-in WebUI** — a control panel built with **Vue 3 + Vite + TypeScript**, shipped as static files in `webroot/` and opened directly by KernelSU / APatch Manager / MMRL. Dashboard, module list, FN management, and a logcat viewer. Light / dark / AMOLED themes and multi-language. See [docs/WEBUI.md](docs/WEBUI.md).
 - **FN (Functional Node) modules** — declarative, scoped, hot-swappable extension units on top of the Zygisk core: script nodes and native nodes, enabled/disabled without a reboot. See [docs/FN.md](docs/FN.md).
 - **APatch-first** — `apd` detection, real-CSV `package_config` parsing and atomic writes, clean-namespace unmounting across known root overlay sources. See [docs/APATCH.md](docs/APATCH.md).
 - **Advanced stealth** — a sophisticated DenyList that hides root and module traces from apps that look for them.

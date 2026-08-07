@@ -32,6 +32,40 @@ val minMagiskVersion: Int by rootProject.extra
 val workDirectory: String by rootProject.extra
 val commitHash: String by rootProject.extra
 
+/** npm binary name on the current platform (npm.cmd on Windows). */
+fun npmCommand(): String =
+    if (System.getProperty("os.name").lowercase().contains("win")) "npm.cmd" else "npm"
+
+// The WebUI is a Vue 3 + Vite + TypeScript project living in zygiskd/webui.
+// `webuiInstall` bootstraps dependencies once (npm ci, only when node_modules
+// is missing); `webuiBuild` runs the production build into zygiskd/webui/dist/,
+// which is what ships as the module's `webroot/`. Building the module zip
+// therefore requires Node.js (>= 18).
+val webuiInstall = task<Exec>("webuiInstall") {
+    group = "webui"
+    workingDir = file("$rootDir/zygiskd/webui")
+    commandLine(npmCommand(), "ci", "--no-audit", "--no-fund")
+    outputs.dir(file("$rootDir/zygiskd/webui/node_modules"))
+    onlyIf { !file("$rootDir/zygiskd/webui/node_modules").exists() }
+}
+
+val webuiBuild = task<Exec>("webuiBuild") {
+    group = "webui"
+    dependsOn(webuiInstall)
+    workingDir = file("$rootDir/zygiskd/webui")
+    commandLine(npmCommand(), "run", "build")
+    inputs.dir(file("$rootDir/zygiskd/webui/src"))
+    inputs.dir(file("$rootDir/zygiskd/webui/public"))
+    inputs.files(
+        file("$rootDir/zygiskd/webui/package.json"),
+        file("$rootDir/zygiskd/webui/package-lock.json"),
+        file("$rootDir/zygiskd/webui/vite.config.ts"),
+        file("$rootDir/zygiskd/webui/tsconfig.json"),
+        file("$rootDir/zygiskd/webui/index.html"),
+    )
+    outputs.dir(file("$rootDir/zygiskd/webui/dist"))
+}
+
 android {
     buildFeatures {
         buildConfig = false
@@ -52,6 +86,7 @@ androidComponents.onVariants { variant ->
         dependsOn(
             ":loader:assemble$variantCapped",
             ":zygiskd:buildAndStrip$variantCapped",
+            webuiBuild,
         )
         // Force UTF-8 for content filtering (ReplaceTokens / FixCrLf / expand).
         // Without this Gradle uses the platform default charset (GBK on Windows),
@@ -92,11 +127,12 @@ androidComponents.onVariants { variant ->
         }
         // The WebUI ships as static files in the module's `webroot/` directory
         // (KernelSU webroot convention): root manager apps load the page
-        // directly from there, no daemon involvement. Editing `webroot/`
-        // customizes the UI without rebuilding. `customize.sh` extracts this
-        // directory on install (SKIPUNZIP=1 mode).
+        // directly from there, no daemon involvement. The files come from the
+        // Vite build output (zygiskd/webui/dist) — see the `webuiBuild` task
+        // above. `customize.sh` extracts this directory on install
+        // (SKIPUNZIP=1 mode).
         into("webroot") {
-            from("$rootDir/zygiskd/webui")
+            from("$rootDir/zygiskd/webui/dist")
         }
         into("lib") {
             from(project(":loader").layout.buildDirectory.dir("intermediates/stripped_native_libs/$variantLowered/strip${variantCapped}DebugSymbols/out/lib"))
