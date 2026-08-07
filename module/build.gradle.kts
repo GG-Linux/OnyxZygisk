@@ -95,8 +95,18 @@ androidComponents.onVariants { variant ->
         into(moduleDir)
         from("${rootProject.projectDir}/README.md")
         from("$projectDir/src") {
-            exclude("module.prop", "action.sh", "customize.sh", "post-fs-data.sh", "service.sh", "uninstall.sh", "zygisk-ctl.sh")
+            // Text files only: run them through the CRLF filter. Binary assets
+            // (banner etc.) must NOT be filtered or they get corrupted.
+            exclude(
+                "module.prop", "action.sh", "customize.sh", "post-fs-data.sh",
+                "service.sh", "uninstall.sh", "zygisk-ctl.sh",
+                "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.webp", "**/*.gif", "**/*.ico",
+            )
             filter<FixCrLfFilter>("eol" to FixCrLfFilter.CrLf.newInstance("lf"))
+        }
+        // Binary assets are copied verbatim (no filtering).
+        from("$projectDir/src") {
+            include("**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.webp", "**/*.gif", "**/*.ico")
         }
         from("$projectDir/src") {
             include("module.prop")
