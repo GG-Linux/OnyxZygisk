@@ -74,7 +74,7 @@ describe("ModulesSection", () => {
             name: "",
             version: "1.0",
             author: "",
-            zygisk: false,
+            zygisk: true,
             disabled: false,
             desc: "",
           },
@@ -84,6 +84,29 @@ describe("ModulesSection", () => {
     const wrapper = mount(ModulesSection);
     await flushPromises();
     expect(wrapper.find(".mod-row__name").text()).toBe("bare");
+    wrapper.unmount();
+  });
+
+  it("hides modules that are not Zygisk-capable", async () => {
+    vi.mocked(fetchState).mockResolvedValue(
+      state({
+        modules: [
+          {
+            id: "plain_system_module",
+            name: "Plain Module",
+            version: "1.0",
+            author: "someone",
+            zygisk: false,
+            disabled: false,
+            desc: "",
+          },
+        ],
+      }),
+    );
+    const wrapper = mount(ModulesSection);
+    await flushPromises();
+    expect(wrapper.findAll(".mod-row")).toHaveLength(0);
+    expect(wrapper.text()).toContain("No Zygisk modules installed");
     wrapper.unmount();
   });
 

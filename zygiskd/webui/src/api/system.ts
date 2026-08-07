@@ -37,6 +37,8 @@ const STATUS_SCRIPT = [
   '  ds=$(sed -n "s/^description=//p" "$p" | head -n1)',
   '  zy=0; [ -f "$d/zygisk/arm64-v8a.so" ] || [ -f "$d/zygisk/armeabi-v7a.so" ] && zy=1',
   '  dis=0; [ -f "$d/disable" ] && dis=1',
+  // Only Zygisk-capable modules are shown in the WebUI.
+  '  [ "$zy" = 0 ] && continue',
   '  echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds"',
   "done",
   'echo "@@fn"',

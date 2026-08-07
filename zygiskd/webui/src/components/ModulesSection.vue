@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject } from "vue";
+import { computed, inject } from "vue";
 import { fmtVer } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
@@ -10,6 +10,9 @@ const { t } = useLocale();
 // Shared 6s-polled state (provided by App.vue); local fallback for standalone mounts.
 const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
 const { loading, error, modules } = state;
+
+// Only Zygisk-capable modules are shown (the shell also filters them).
+const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
 </script>
 
 <template>
@@ -17,9 +20,9 @@ const { loading, error, modules } = state;
     <Card :title="t('navbar.modules')">
       <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
       <div v-else-if="error" class="empty">{{ t("common.error") }}: {{ error }}</div>
-      <div v-else-if="!modules.length" class="empty">{{ t("modules.empty") }}</div>
+      <div v-else-if="!zygiskModules.length" class="empty">{{ t("modules.empty") }}</div>
       <div v-else>
-        <div v-for="m in modules" :key="m.id" class="mod-row list-row">
+        <div v-for="m in zygiskModules" :key="m.id" class="mod-row list-row">
           <div class="mod-row__main">
             <span class="mod-row__name">{{ m.name || m.id }}</span>
             <span class="mod-row__ver">{{ fmtVer(m.version) }}</span>
