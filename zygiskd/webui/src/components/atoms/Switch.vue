@@ -5,7 +5,7 @@ const checked = defineModel<boolean>("checked", { default: false });
 
 <template>
   <label class="switch">
-    <input type="checkbox" v-model="checked">
+    <input type="checkbox" v-model="checked" />
     <span class="slider"></span>
   </label>
 </template>

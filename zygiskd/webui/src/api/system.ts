@@ -1,11 +1,6 @@
 /* OnyxZygisk — data layer. One shell round-trip fetches full system state. */
 import { exec } from "../bridge";
-import type {
-  FnNodeInfo,
-  ModuleInfo,
-  MonitorRow,
-  StateData,
-} from "../types";
+import type { FnNodeInfo, ModuleInfo, MonitorRow, StateData } from "../types";
 
 const WORKDIR = "/data/adb/onyxzygisk";
 const MODDIR = "/data/adb/modules/onyxzygisk";
@@ -13,15 +8,15 @@ const MODDIR = "/data/adb/modules/onyxzygisk";
 const STATUS_SCRIPT = [
   'MOD="' + MODDIR + '"; W="' + WORKDIR + '"',
   'v=$(sed -n "s/^version=//p" "$MOD/module.prop" 2>/dev/null | head -n1)',
-  'r=none',
+  "r=none",
   // Root detection order matters: later matches override earlier ones.
   // FolkPatch (an APatch extended branch) ships its own daemon under
   // /data/adb/fp while keeping the APatch-compatible `apd`, so it is checked
   // after APatch and wins when both are present.
-  '[ -x /data/adb/ap/bin/apd ] && r=APatch',
-  '[ -x /data/adb/fp/bin/fpd ] && r=FolkPatch',
-  '[ -d /data/adb/ksu ] && r=KernelSU',
-  'command -v magisk >/dev/null 2>&1 && r=Magisk',
+  "[ -x /data/adb/ap/bin/apd ] && r=APatch",
+  "[ -x /data/adb/fp/bin/fpd ] && r=FolkPatch",
+  "[ -d /data/adb/ksu ] && r=KernelSU",
+  "command -v magisk >/dev/null 2>&1 && r=Magisk",
   'echo "version=$v"; echo "root=$r"',
   'pidof zygote64 >/dev/null 2>&1 && echo "z64=1" || echo "z64=0"',
   '(pidof zygote >/dev/null 2>&1 || pidof zygote_secondary >/dev/null 2>&1) && echo "z32=1" || echo "z32=0"',
@@ -33,7 +28,7 @@ const STATUS_SCRIPT = [
   'echo "@@monitor"',
   'cat "$W/module.prop" 2>/dev/null | head -c 600; echo',
   'echo "@@modules"',
-  'for d in /data/adb/modules/*/; do',
+  "for d in /data/adb/modules/*/; do",
   '  [ -d "$d" ] || continue; p="$d/module.prop"; [ -f "$p" ] || continue',
   '  id=$(sed -n "s/^id=//p" "$p" | head -n1)',
   '  nm=$(sed -n "s/^name=//p" "$p" | head -n1)',
@@ -43,7 +38,7 @@ const STATUS_SCRIPT = [
   '  zy=0; [ -f "$d/zygisk/arm64-v8a.so" ] || [ -f "$d/zygisk/armeabi-v7a.so" ] && zy=1',
   '  dis=0; [ -f "$d/disable" ] && dis=1',
   '  echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds"',
-  'done',
+  "done",
   'echo "@@fn"',
   'for d in "$W"/fn/*/; do',
   '  [ -d "$d" ] || continue; p="$d/fn.prop"; [ -f "$p" ] || continue',
@@ -54,7 +49,7 @@ const STATUS_SCRIPT = [
   '  sc=$(sed -n "s/^scope=//p" "$p" | head -n1)',
   '  st=enabled; [ -f "$d/disable" ] && st=disabled; [ -f "$d/remove" ] && st=pending_remove',
   '  echo "F|$id|$nm|$ver|$tr|$sc|$st"',
-  'done',
+  "done",
   // Lines are joined with newlines, NOT "; ": a `; ` separator turns the
   // multi-line `for ...; do` loops into `do;` which is a shell syntax error.
 ].join("\n");
@@ -145,6 +140,8 @@ export async function setFnEnabled(id: string, enabled: boolean): Promise<void> 
 
 /** Normalize version display: strip a leading v/V then add one. */
 export function fmtVer(v: string | undefined): string {
-  const s = String(v || "?").trim().replace(/^[vV]/, "");
+  const s = String(v || "?")
+    .trim()
+    .replace(/^[vV]/, "");
   return "v" + (s || "?");
 }

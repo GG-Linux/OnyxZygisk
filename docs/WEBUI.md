@@ -53,15 +53,19 @@ WebUI 基于 **Vue 3 + Vite + TypeScript** 构建，源码在仓库的
 
 ```sh
 cd zygiskd/webui
-npm install          # 首次（Gradle 构建时会自动执行 npm ci）
-npm run dev          # 开发预览：PC 浏览器 + mock 数据，热更新
-npm run build        # 类型检查（vue-tsc）+ 产物到 dist/
+pnpm install          # 首次（Gradle 构建时会自动执行 pnpm install --frozen-lockfile）
+pnpm dev              # 开发预览：PC 浏览器 + mock 数据，热更新
+pnpm test             # 单元测试（Vitest，jsdom）
+pnpm lint             # ESLint 检查（vue + typescript）
+pnpm format           # Prettier 格式化
+pnpm run build        # 类型检查（vue-tsc）+ 产物到 dist/
 ```
 
-模块 zip 构建时 Gradle 的 `webuiBuild` 任务会自动执行 `npm run build`，
-并把 `dist/` 打包进 `webroot/`（依赖 Node.js ≥ 18，首次构建自动 `npm ci`）。
+模块 zip 构建时 Gradle 的 `webuiBuild` 任务会自动执行 `pnpm run build`，
+并把 `dist/` 打包进 `webroot/`（依赖 pnpm + Node.js ≥ 18，首次构建自动
+`pnpm install --frozen-lockfile`）。
 
-> **注意**：`webroot/` 是构建产物，修改源码后必须重新 `npm run build`
+> **注意**：`webroot/` 是构建产物，修改源码后必须重新 `pnpm run build`
 > 并重新打包模块才会生效；不要直接编辑安装后的 `webroot/`。
 
 ## 与既有实现的关系

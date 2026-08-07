@@ -32,19 +32,19 @@ val minMagiskVersion: Int by rootProject.extra
 val workDirectory: String by rootProject.extra
 val commitHash: String by rootProject.extra
 
-/** npm binary name on the current platform (npm.cmd on Windows). */
-fun npmCommand(): String =
-    if (System.getProperty("os.name").lowercase().contains("win")) "npm.cmd" else "npm"
+/** pnpm binary name on the current platform (pnpm.cmd on Windows). */
+fun pnpmCommand(): String =
+    if (System.getProperty("os.name").lowercase().contains("win")) "pnpm.cmd" else "pnpm"
 
 // The WebUI is a Vue 3 + Vite + TypeScript project living in zygiskd/webui.
-// `webuiInstall` bootstraps dependencies once (npm ci, only when node_modules
-// is missing); `webuiBuild` runs the production build into zygiskd/webui/dist/,
-// which is what ships as the module's `webroot/`. Building the module zip
-// therefore requires Node.js (>= 18).
+// `webuiInstall` bootstraps dependencies once (pnpm install --frozen-lockfile,
+// only when node_modules is missing); `webuiBuild` runs the production build
+// into zygiskd/webui/dist/, which is what ships as the module's `webroot/`.
+// Building the module zip therefore requires pnpm (Node.js >= 18).
 val webuiInstall = task<Exec>("webuiInstall") {
     group = "webui"
     workingDir = file("$rootDir/zygiskd/webui")
-    commandLine(npmCommand(), "ci", "--no-audit", "--no-fund")
+    commandLine(pnpmCommand(), "install", "--frozen-lockfile")
     outputs.dir(file("$rootDir/zygiskd/webui/node_modules"))
     onlyIf { !file("$rootDir/zygiskd/webui/node_modules").exists() }
 }
@@ -53,7 +53,7 @@ val webuiBuild = task<Exec>("webuiBuild") {
     group = "webui"
     dependsOn(webuiInstall)
     workingDir = file("$rootDir/zygiskd/webui")
-    commandLine(npmCommand(), "run", "build")
+    commandLine(pnpmCommand(), "run", "build")
     inputs.dir(file("$rootDir/zygiskd/webui/src"))
     inputs.dir(file("$rootDir/zygiskd/webui/public"))
     inputs.files(

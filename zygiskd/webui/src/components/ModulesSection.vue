@@ -62,22 +62,69 @@ onMounted(load);
 </template>
 
 <style scoped>
-.section-head { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 10px; }
-.section-head .section-title { margin: 0; }
-.mod-row { padding: 10px 0; }
-.mod-row--border { border-top: 1px solid var(--border); }
-.mod-row__main { display: flex; align-items: baseline; gap: 8px; }
-.mod-row__name { font-size: 14px; font-weight: 600; }
-.mod-row__ver { font-size: 12px; color: var(--text3); }
-.mod-row__desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
-.mod-row__foot { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
-.mod-row__author { font-size: 11px; color: var(--text3); }
-.mod-row__status { font-size: 11px; font-weight: 500; }
-.mod-row__status.on { color: var(--green); }
-.mod-row__status.off { color: var(--text3); }
+.section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 0 2px 10px;
+}
+.section-head .section-title {
+  margin: 0;
+}
+.mod-row {
+  padding: 10px 0;
+}
+.mod-row--border {
+  border-top: 1px solid var(--border);
+}
+.mod-row__main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.mod-row__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+.mod-row__ver {
+  font-size: 12px;
+  color: var(--text3);
+}
+.mod-row__desc {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+.mod-row__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+.mod-row__author {
+  font-size: 11px;
+  color: var(--text3);
+}
+.mod-row__status {
+  font-size: 11px;
+  font-weight: 500;
+}
+.mod-row__status.on {
+  color: var(--green);
+}
+.mod-row__status.off {
+  color: var(--text3);
+}
 .refresh-link {
   padding-top: 4px;
-  font-size: 10px; color: var(--text3); cursor: pointer; text-align: left; opacity: .4;
+  font-size: 10px;
+  color: var(--text3);
+  cursor: pointer;
+  text-align: left;
+  opacity: 0.4;
 }
-.refresh-link:hover { color: var(--primary); opacity: .8; }
+.refresh-link:hover {
+  color: var(--primary);
+  opacity: 0.8;
+}
 </style>
