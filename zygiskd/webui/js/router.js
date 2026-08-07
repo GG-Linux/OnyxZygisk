@@ -1,9 +1,8 @@
-/* OnyxZygisk — router. Convention-based pages: js/pages/<id>/{index.html,index.css,index.js}.
- * Strategy: preload every page once (HTML + CSS + JS module), then switch by visibility.
- * Per-page CSS is toggled via <style media>. i18n {{}} placeholders solved on load and
- * re-solved on language change. Each page module may export: render(ctx), hide().
- * Page DOM is scoped under its own root element; page code queries within ctx.root, so
- * there are no cross-page id collisions.
+/* OnyxZygisk — single-page loader (Zygisk Next style: one fixed, scrollable page).
+ * Every section (js/pages/<id>/{index.html,index.css,index.js}) is loaded once and
+ * stacked into #page_content. There is no navigation — all sections are always visible.
+ * Each page module may export render(ctx). i18n {{}} placeholders are solved on load and
+ * re-solved on language change. Page DOM is scoped under its own section body.
  */
 "use strict";
 
@@ -11,12 +10,12 @@ import { solveStrings, t } from "./i18n.js";
 import { exec } from "./bridge.js";
 import { el, clear } from "./dom.js";
 
-export const PAGES = ["status", "modules", "fn", "logs", "apatch", "settings"];
+/* Order on the single page (Basic status first, settings last). */
+export const SECTIONS = ["status", "modules", "fn", "apatch", "logs", "settings"];
 
-const roots = {};        // id -> container element
+const roots = {};        // id -> section body element
 const mods = {};         // id -> page module
-const originalHTML = {}; // id -> raw (unsolved) html
-let current = null;
+const originalHTML = {}; // id -> raw (unsolved) fragment html
 
 function makeCtx(id) {
   const root = roots[id];
@@ -34,70 +33,45 @@ async function fetchText(url) {
 
 export async function boot() {
   const container = document.getElementById("page_content");
-  for (const id of PAGES) {
+  for (const id of SECTIONS) {
     const html = await fetchText(`js/pages/${id}/index.html`);
     const css = await fetchText(`js/pages/${id}/index.css`);
-
-    const root = el("div", "page");
-    root.id = `page-${id}`;
-    root.style.display = "none";
-    originalHTML[id] = html;
-    root.innerHTML = solveStrings(html);
-    container.appendChild(root);
-    roots[id] = root;
 
     if (css) {
       const style = document.createElement("style");
       style.dataset.page = id;
-      style.media = "not all";
       style.textContent = css;
       document.head.appendChild(style);
     }
 
+    const section = el("section", "section");
+    section.id = `section-${id}`;
+    const title = el("h2", "section-title", t("navbar." + id));
+    title.dataset.sec = id;
+    const body = el("div", "section-body");
+    originalHTML[id] = html;
+    body.innerHTML = solveStrings(html);
+    section.append(title, body);
+    container.appendChild(section);
+    roots[id] = body;
+
     try { mods[id] = await import(`./pages/${id}/index.js`); }
-    catch (e) { console.error(`page ${id} failed to load`, e); mods[id] = {}; }
+    catch (e) { console.error(`section ${id} failed to load`, e); mods[id] = {}; }
+
+    if (mods[id] && mods[id].render) {
+      try { await mods[id].render(makeCtx(id)); } catch (e) { console.error(e); }
+    }
   }
 }
 
-export async function navigate(id) {
-  if (!PAGES.includes(id) || current === id) return;
-
-  if (current) {
-    if (mods[current] && mods[current].hide) { try { mods[current].hide(); } catch (e) {} }
-    roots[current].style.display = "none";
-    const oldStyle = document.querySelector(`style[data-page="${current}"]`);
-    if (oldStyle) oldStyle.media = "not all";
-  }
-
-  const style = document.querySelector(`style[data-page="${id}"]`);
-  if (style) style.media = "all";
-  roots[id].style.display = "block";
-
-  document.querySelectorAll("#navbar .nav-item").forEach((b) =>
-    b.classList.toggle("active", b.dataset.page === id)
-  );
-
-  current = id;
-  const mod = mods[id];
-  if (mod && mod.render) { try { await mod.render(makeCtx(id)); } catch (e) { console.error(e); } }
-}
-
-/** Re-apply translations to every page after a language change. */
+/** Re-apply translations to every section after a language change. */
 export function retranslateAll() {
-  updateNavbarLabels();
-  for (const id of PAGES) {
+  for (const id of SECTIONS) {
+    const titleEl = document.querySelector(`.section-title[data-sec="${id}"]`);
+    if (titleEl) titleEl.textContent = t("navbar." + id);
     roots[id].innerHTML = solveStrings(originalHTML[id]);
-  }
-  if (current && mods[current] && mods[current].render) {
-    try { mods[current].render(makeCtx(current)); } catch (e) { console.error(e); }
+    if (mods[id] && mods[id].render) {
+      try { mods[id].render(makeCtx(id)); } catch (e) { console.error(e); }
+    }
   }
 }
-
-export function updateNavbarLabels() {
-  document.querySelectorAll("#navbar .nav-item .nav-label").forEach((span) => {
-    const key = span.dataset.nav;
-    if (key) span.textContent = t("navbar." + key);
-  });
-}
-
-export function currentPage() { return current; }

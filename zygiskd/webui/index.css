@@ -48,7 +48,7 @@ body {
   font-family: var(--font); line-height: 1.55;
   min-height: 100vh; -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
-  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   transition: background .2s, color .2s;
 }
 a { color: var(--primary); text-decoration: none; }
@@ -69,10 +69,14 @@ a { color: var(--primary); text-decoration: none; }
 }
 .header-badge.ok { color: var(--green); border-color: var(--green); background: var(--green-bg); }
 
-/* ── page container ── */
-#page_content { max-width: 720px; margin: 0 auto; padding: 6px 20px 20px; }
-.page { animation: fade .18s ease; }
-@keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* ── page container (single fixed page) ── */
+#page_content { max-width: 720px; margin: 0 auto; padding: 6px 20px 20px; animation: fade .2s ease; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── stacked sections ── */
+.section { margin-top: 18px; }
+.section:first-child { margin-top: 6px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text2); margin: 0 2px 8px; }
 
 /* ── cards ── */
 .card {

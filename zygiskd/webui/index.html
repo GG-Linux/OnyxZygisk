@@ -18,30 +18,8 @@
   <span class="header-badge" id="host-badge">--</span>
 </header>
 
-<!-- Pages are injected here by the router -->
+<!-- Single fixed page: all sections stacked here by the loader -->
 <main id="page_content"></main>
-
-<!-- Bottom navigation -->
-<nav id="navbar" class="navbar">
-  <button class="nav-item active" data-page="status">
-    <span class="nav-ico">📊</span><span class="nav-label" data-nav="status">Status</span>
-  </button>
-  <button class="nav-item" data-page="modules">
-    <span class="nav-ico">📦</span><span class="nav-label" data-nav="modules">Modules</span>
-  </button>
-  <button class="nav-item" data-page="fn">
-    <span class="nav-ico">🧬</span><span class="nav-label" data-nav="fn">FN</span>
-  </button>
-  <button class="nav-item" data-page="logs">
-    <span class="nav-ico">📜</span><span class="nav-label" data-nav="logs">Logs</span>
-  </button>
-  <button class="nav-item" data-page="apatch">
-    <span class="nav-ico">📡</span><span class="nav-label" data-nav="apatch">APatch</span>
-  </button>
-  <button class="nav-item" data-page="settings">
-    <span class="nav-ico">⚙️</span><span class="nav-label" data-nav="settings">Settings</span>
-  </button>
-</nav>
 
 <!-- APatch compat: some APatch builds inject the interface as window.apatch
      rather than window.ksu. Alias it so the KernelSU-style bridge works. -->
