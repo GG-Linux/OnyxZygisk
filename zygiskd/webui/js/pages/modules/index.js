@@ -23,8 +23,7 @@ async function load() {
     }
     d.modules.forEach((m) => {
       const card = ctx.el("div", "mod-card");
-      card.append(ctx.el("div", "mod-icon", "📦"));
-      const body = ctx.el("div", "mod-body");
+            const body = ctx.el("div", "mod-body");
       body.append(
         ctx.el("div", "mod-name", m.name || m.id),
         ctx.el("div", "mod-meta", `${fmtVer(m.version)} · ${m.author || ctx.t("modules.unknownAuthor")}`)

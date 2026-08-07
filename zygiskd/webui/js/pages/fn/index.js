@@ -27,8 +27,7 @@ async function load() {
     }
     d.fns.forEach((n) => {
       const card = ctx.el("div", "mod-card");
-      card.append(ctx.el("div", "mod-icon", "🧬"));
-      const body = ctx.el("div", "mod-body");
+            const body = ctx.el("div", "mod-body");
       body.append(
         ctx.el("div", "mod-name", n.name || n.id),
         ctx.el("div", "mod-meta", `${fmtVer(n.version)} · ${ctx.t("fn.trigger")}: ${n.trigger || "app"} · ${ctx.t("fn.scope")}: ${n.scope || "all"}`)

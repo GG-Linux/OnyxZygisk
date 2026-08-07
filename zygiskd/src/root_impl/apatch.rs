@@ -31,6 +31,9 @@ const APD_BINARY: &str = "/data/adb/ap/bin/apd";
 pub const CONFIG_FILE: &str = "/data/adb/ap/package_config";
 /// The package name of the APatch manager app.
 const MANAGER_PKG: &str = "me.bmax.apatch";
+/// The package name of the FolkPatch manager app (an APatch extended branch
+/// that reuses the `apd` daemon and package_config layout).
+const FOLKPATCH_PKG: &str = "me.yuki.folk";
 
 /// How often to retry reading the package config before giving up. The config
 /// is rewritten atomically (tmp + rename), but a reader can still catch the
@@ -295,18 +298,22 @@ pub fn uid_should_umount(uid: i32) -> bool {
         .any(|pkg| pkg.exclude && pkg.uid_in_range(uid))
 }
 
-/// Checks if a UID belongs to the APatch manager app.
+/// Checks if a UID belongs to the APatch / FolkPatch manager app.
 ///
 /// The manager may be installed for any user profile, so both `/data/user`
 /// and `/data/user_de` are scanned (the device owner's profile is `/data/user/0`).
+/// FolkPatch (an APatch extended branch) keeps the same `apd`/package_config
+/// layout but ships its Manager under `me.yuki.folk`.
 pub fn uid_is_manager(uid: i32) -> bool {
     for base in ["/data/user_de", "/data/user"] {
         if let Ok(users) = fs::read_dir(base) {
             for user in users.flatten() {
-                let path = user.path().join(MANAGER_PKG);
-                if let Ok(metadata) = fs::metadata(path) {
-                    if metadata.uid() == uid as u32 {
-                        return true;
+                for pkg in [MANAGER_PKG, FOLKPATCH_PKG] {
+                    let path = user.path().join(pkg);
+                    if let Ok(metadata) = fs::metadata(path) {
+                        if metadata.uid() == uid as u32 {
+                            return true;
+                        }
                     }
                 }
             }

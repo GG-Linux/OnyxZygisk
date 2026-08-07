@@ -78,7 +78,7 @@ export function toast(msg) {
 function devResponse(cmd) {
   if (cmd.indexOf("logcat") !== -1) {
     return [
-      "I/zygiskd(1234): 欢迎使用 OnyxZygisk (v1.0) 😋",
+      "I/zygiskd(1234): 欢迎使用 OnyxZygisk (v1.0) ",
       "I/zygisk-core64(1256): zygisk library injected, version v1.0",
       "I/zygiskd(1234): Daemon listening on cp64.sock",
       "I/zygisk-sh(1201): 手动触发 post-fs-data.sh",
@@ -88,9 +88,9 @@ function devResponse(cmd) {
     return [
       "version=1.0", "root=KernelSU", "z64=1", "z32=1", "daemon=1", "workdir=/data/adb/onyxzygisk",
       "@@monitor",
-      "\tOnyxZygisk\tv1.0", "\tmonitor: \t😋 tracing", "", "\tzygote64:\t😋 injected", "\tdaemon64:\t😋 running", "",
+      "\tOnyxZygisk\tv1.0", "\tmonitor: \t tracing", "", "\tzygote64:\t injected", "\tdaemon64:\t running", "",
       "@@modules",
-      "M|playintegrityfix|Play Integrity Fix|v18.8|chiteroman|1|0|修复 Play Integrity 认证 😊",
+      "M|playintegrityfix|Play Integrity Fix|v18.8|chiteroman|1|0|修复 Play Integrity 认证 ",
       "M|tricky_store|Tricky Store|v1.2.1|5ec1cff|1|0|在 TEE 损坏设备上伪造 keybox",
       "M|lsposed_mod|LSPosed (Mod)|v1.9.2|mywalkb|1|1|A Riru/Zygisk framework",
       "@@fn",

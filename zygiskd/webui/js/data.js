@@ -10,7 +10,12 @@ const STATUS_SCRIPT = [
   'MOD="' + MODDIR + '"; W="' + WORKDIR + '"',
   'v=$(sed -n "s/^version=//p" "$MOD/module.prop" 2>/dev/null | head -n1)',
   'r=none',
+  // Root detection order matters: later matches override earlier ones.
+  // FolkPatch (an APatch extended branch) ships its own daemon under
+  // /data/adb/fp while keeping the APatch-compatible `apd`, so it is checked
+  // after APatch and wins when both are present.
   '[ -x /data/adb/ap/bin/apd ] && r=APatch',
+  '[ -x /data/adb/fp/bin/fpd ] && r=FolkPatch',
   '[ -d /data/adb/ksu ] && r=KernelSU',
   'command -v magisk >/dev/null 2>&1 && r=Magisk',
   'echo "version=$v"; echo "root=$r"',
@@ -87,112 +92,6 @@ export async function fetchLogs(lines) {
 export async function setFnEnabled(id, enabled) {
   const flag = `${WORKDIR}/fn/${id}/disable`;
   return exec(enabled ? `rm -f '${flag}'` : `touch '${flag}'`);
-}
-
-// ---------- APatch (package_config / apd) ----------
-
-const AP_CONFIG = "/data/adb/ap/package_config";
-const APD_BIN = "/data/adb/ap/bin/apd";
-
-const APATCH_SCRIPT = [
-  `P=${AP_CONFIG}; A=${APD_BIN}`,
-  'echo "apd_ver=$([ -x "$A" ] && "$A" -V 2>/dev/null | grep -o "[0-9][0-9]*" | tail -1 || echo "")"',
-  'echo "apd_run=$(pidof apd >/dev/null 2>&1 && echo 1 || echo 0)"',
-  'echo "cfg_exists=$([ -f "$P" ] && echo 1 || echo 0)"',
-  'echo "cfg_count=$([ -f "$P" ] && tail -n +2 "$P" 2>/dev/null | grep -c . || echo 0)"',
-  'echo "@@config"',
-  'tail -n +2 "$P" 2>/dev/null',
-  'echo "@@apdmodules"',
-  '"$A" module list 2>/dev/null',
-].join("\n");
-
-/** 解析 package_config 的 CSV 行（支持双引号字段）。 */
-function parseCsvLine(line) {
-  const fields = [];
-  let field = "", inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (inQ && line[i + 1] === '"') { field += '"'; i++; }
-      else inQ = !inQ;
-    } else if (ch === "," && !inQ) {
-      fields.push(field); field = "";
-    } else field += ch;
-  }
-  fields.push(field);
-  return fields;
-}
-
-export function parseApatch(out) {
-  const data = { apdVer: "", apdRun: false, cfgExists: false, cfgCount: 0, rows: [], apdModules: "" };
-  let section = "keys";
-  for (const line of out.split("\n")) {
-    if (line === "@@config") { section = "config"; continue; }
-    if (line === "@@apdmodules") { section = "apdmodules"; continue; }
-    if (section === "keys") {
-      const i = line.indexOf("=");
-      if (i > 0) {
-        const k = line.slice(0, i), v = line.slice(i + 1);
-        if (k === "apd_ver") data.apdVer = v;
-        else if (k === "apd_run") data.apdRun = v === "1";
-        else if (k === "cfg_exists") data.cfgExists = v === "1";
-        else if (k === "cfg_count") data.cfgCount = parseInt(v, 10) || 0;
-      }
-    } else if (section === "config" && line.trim()) {
-      const f = parseCsvLine(line);
-      if (f.length >= 6) {
-        data.rows.push({
-          pkg: f[0],
-          exclude: f[1] === "1",
-          allow: f[2] === "1",
-          uid: parseInt(f[3], 10) || 0,
-          toUid: parseInt(f[4], 10) || 0,
-          sctx: f[5],
-        });
-      }
-    } else if (section === "apdmodules") {
-      data.apdModules += line + "\n";
-    }
-  }
-  return data;
-}
-
-export async function fetchApatch() {
-  const r = await exec(APATCH_SCRIPT);
-  return parseApatch(r.stdout);
-}
-
-function csvField(s) {
-  s = String(s == null ? "" : s);
-  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-}
-
-/** 把配置行序列化为 CSV 行。 */
-function csvRow(c) {
-  return [csvField(c.pkg), c.exclude ? 1 : 0, c.allow ? 1 : 0, c.uid, c.toUid, csvField(c.sctx)].join(",");
-}
-
-/** 原子重写 package_config（tmp + mv，与 apd 的写入方式一致）。 */
-export async function savePackageConfig(rows) {
-  const lines = ["pkg,exclude,allow,uid,to_uid,sctx", ...rows.map(csvRow)];
-  const body = lines.join("\n");
-  const cmd = [
-    `cat > ${AP_CONFIG}.tmp <<'ONYXEOF'`,
-    body,
-    "ONYXEOF",
-    `chmod 644 ${AP_CONFIG}.tmp`,
-    `mv ${AP_CONFIG}.tmp ${AP_CONFIG}`,
-  ].join("\n");
-  const r = await exec(cmd);
-  if (r.stderr) throw new Error(r.stderr);
-  return r;
-}
-
-/** 通过 /data/system/packages.list 查询包名对应的 uid。 */
-export async function pkgToUid(pkg) {
-  const r = await exec(`grep "^${pkg} " /data/system/packages.list 2>/dev/null | head -1 | awk '{print $2}'`);
-  const uid = parseInt(r.stdout.trim(), 10);
-  return Number.isInteger(uid) && uid > 0 ? uid : null;
 }
 
 /** Normalize version display: strip a leading v/V then add one. */

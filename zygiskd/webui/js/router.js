@@ -11,7 +11,7 @@ import { exec } from "./bridge.js";
 import { el, clear } from "./dom.js";
 
 /* Order on the single page (Basic status first, settings last). */
-export const SECTIONS = ["status", "modules", "fn", "apatch", "logs", "settings"];
+export const SECTIONS = ["status", "modules", "fn", "logs", "settings"];
 
 const roots = {};        // id -> section body element
 const mods = {};         // id -> page module

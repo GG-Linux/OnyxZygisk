@@ -4,7 +4,6 @@
     "modules": "模块",
     "fn": "FN",
     "logs": "日志",
-    "apatch": "APatch",
     "settings": "设置"
   },
   "common": {
@@ -41,28 +40,6 @@
     "lines": "行数",
     "auto": "自动",
     "empty": "（无日志）"
-  },
-  "apatch": {
-    "title": "APatch",
-    "apdVersion": "apd 版本",
-    "apdRunning": "apd 运行",
-    "configCount": "配置条目",
-    "configTitle": "root 授权与卸载模块（package_config）",
-    "configHint": "直接读写 /data/adb/ap/package_config（原子替换，apd 会自动同步到内核）",
-    "pkgPlaceholder": "包名，如 com.example.app",
-    "add": "添加应用",
-    "pkg": "包名",
-    "uid": "UID",
-    "rootGrant": "Root 授权",
-    "umount": "卸载模块",
-    "remove": "移除",
-    "empty": "暂无配置 —— 添加一个应用开始",
-    "saved": "已保存（apd 将自动同步到内核）",
-    "badPkg": "包名格式无效",
-    "exists": "该包已在列表中",
-    "noUid": "未找到该包，请确认已安装",
-    "apdModules": "apd 模块列表",
-    "noModules": "（apd 无输出）"
   },
   "settings": {
     "appearance": "外观",

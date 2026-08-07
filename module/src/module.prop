@@ -3,4 +3,4 @@ name=${moduleName}
 version=${versionName}
 versionCode=${versionCode}
 author=Sai
-description=🧬 OnyxZygisk · Zygote injection via ptrace, with FN (Functional Node) modules and a built-in WebUI.
+description= OnyxZygisk · Zygote injection via ptrace, with FN (Functional Node) modules and a built-in WebUI.

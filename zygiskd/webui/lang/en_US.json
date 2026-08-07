@@ -4,7 +4,6 @@
     "modules": "Modules",
     "fn": "FN",
     "logs": "Logs",
-    "apatch": "APatch",
     "settings": "Settings"
   },
   "common": {
@@ -41,28 +40,6 @@
     "lines": "Lines",
     "auto": "Auto",
     "empty": "(no logs)"
-  },
-  "apatch": {
-    "title": "APatch",
-    "apdVersion": "apd version",
-    "apdRunning": "apd running",
-    "configCount": "config entries",
-    "configTitle": "Root grants & umount (package_config)",
-    "configHint": "Read/write /data/adb/ap/package_config directly (atomic replace; apd syncs it to the kernel)",
-    "pkgPlaceholder": "package name, e.g. com.example.app",
-    "add": "Add app",
-    "pkg": "Package",
-    "uid": "UID",
-    "rootGrant": "Root grant",
-    "umount": "Umount modules",
-    "remove": "Remove",
-    "empty": "No entries — add an app to start",
-    "saved": "Saved (apd will sync to the kernel)",
-    "badPkg": "Invalid package name",
-    "exists": "Package already listed",
-    "noUid": "Package not found — is it installed?",
-    "apdModules": "apd module list",
-    "noModules": "(no apd output)"
   },
   "settings": {
     "appearance": "Appearance",
