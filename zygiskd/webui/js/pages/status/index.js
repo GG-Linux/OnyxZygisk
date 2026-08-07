@@ -1,5 +1,5 @@
 /* Status page */
-import { fetchState, fmtVer } from "../../data.js";
+import { fetchState, fmtVer, parseMonitor } from "../../data.js";
 import { detectBridge } from "../../bridge.js";
 
 let ctx;
@@ -13,6 +13,36 @@ export function render(c) {
 }
 
 export function hide() { clearInterval(timer); }
+
+function valClass(v) {
+  if (/not injected|stopped|exited|crashed|invalid/i.test(v)) return "err";
+  if (/tracing|injected|running/i.test(v)) return "ok";
+  if (/unknown/i.test(v)) return "warn";
+  return "";
+}
+
+/* Monitor rows: label/value pairs with the value colored by state; detail
+ * lines (daemon info, module list) render dimmed without a label. */
+function renderMonitor(mon, text) {
+  const rows = parseMonitor(text);
+  ctx.clear(mon);
+  if (!rows.length) {
+    mon.append(ctx.el("div", "monitor-empty", ctx.t("status.noStatus")));
+    return;
+  }
+  for (const r of rows) {
+    if (r.label) {
+      const row = ctx.el("div", "monitor-row");
+      row.append(
+        ctx.el("div", "m-label", r.label),
+        ctx.el("div", "m-val " + valClass(r.value), r.value)
+      );
+      mon.append(row);
+    } else {
+      mon.append(ctx.el("div", "monitor-detail", r.value));
+    }
+  }
+}
 
 async function load() {
   if (!ctx) return;
@@ -43,8 +73,9 @@ async function load() {
       it.append(ctx.el("div", "label", label), ctx.el("div", "val" + (cls ? " " + cls : ""), value));
       grid.append(it);
     });
-    mon.textContent = d.monitor.trim() || ctx.t("status.noStatus");
+    renderMonitor(mon, d.monitor);
   } catch (e) {
-    mon.textContent = "Error: " + e.message;
+    ctx.clear(mon);
+    mon.append(ctx.el("div", "monitor-empty", "Error: " + e.message));
   }
 }

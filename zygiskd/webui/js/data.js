@@ -83,6 +83,25 @@ export async function fetchState() {
   return parseStatus(r.stdout);
 }
 
+/** Parse the monitor status section of the workdir module.prop.
+ * The ptrace monitor writes this file tab-prefixed: module metadata lines
+ * ("key=value"), then live rows ("monitor: tracing", "zygote64: injected",
+ * "daemon64: running"), then daemon detail lines indented deeper
+ * ("Root: APatch", "Modules (2):", module names). Only the live rows and
+ * detail lines are returned; metadata is skipped.
+ */
+export function parseMonitor(text) {
+  const rows = [];  // { label, value } — label is null for plain detail lines
+  for (const raw of String(text || "").split("\n")) {
+    const s = raw.replace(/^\t+/, "").trim();
+    if (!s) continue;
+    if (/^[a-zA-Z][a-zA-Z0-9_]*=/.test(s)) continue;  // module metadata
+    const m = /^([a-z][a-z0-9]*):\s*(.+)$/.exec(s);
+    rows.push(m ? { label: m[1], value: m[2] } : { label: null, value: s });
+  }
+  return rows;
+}
+
 export async function fetchLogs(lines) {
   const n = parseInt(lines, 10) || 200;
   const r = await exec(`logcat -d -v brief -t ${n} -s zygiskd:* zygisk-core64:* zygisk-core32:* zygisk-sh:* 2>/dev/null`);

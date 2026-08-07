@@ -42,22 +42,22 @@ void AppMonitor::write_abi_status_section(std::string &status_text, const Status
         status_text += abi_name;
         status_text += ":";
         if (tracing_state_ != TRACING)
-            status_text += "\t❓ unknown";
+            status_text += "\tunknown";
         else if (daemon_status.zygote_injected)
-            status_text += "\t😋 injected";
+            status_text += "\tinjected";
         else
-            status_text += "\t❌ not injected";
+            status_text += "\tnot injected";
         status_text += "\n\tdaemon";
         status_text += abi_name;
         status_text += ":";
         if (daemon_status.daemon_running) {
-            status_text += "\t😋 running";
+            status_text += "\trunning";
             if (!daemon_status.daemon_info.empty()) {
                 status_text += "\n";
                 status_text += daemon_status.daemon_info;
             }
         } else {
-            status_text += "\t❌ crashed";
+            status_text += "\tcrashed";
             if (!daemon_status.daemon_error_info.empty()) {
                 status_text += "(";
                 status_text += daemon_status.daemon_error_info;
@@ -78,15 +78,15 @@ void AppMonitor::update_status() {
     std::string status_text = "\tmonitor: \t";
     switch (tracing_state_) {
     case TRACING:
-        status_text += "😋 tracing";
+        status_text += "tracing";
         break;
     case STOPPING:
         [[fallthrough]];
     case STOPPED:
-        status_text += "❌ stopped";
+        status_text += "stopped";
         break;
     case EXITING:
-        status_text += "❌ exited";
+        status_text += "exited";
         break;
     }
     if (tracing_state_ != TRACING && !monitor_stop_reason_.empty()) {
@@ -121,7 +121,8 @@ bool AppMonitor::prepare_environment() {
         if (line.starts_with("updateJson=")) return true;
         if (line.starts_with("description=")) {
             post = true;
-            post_section_ += line.substr(sizeof("description"));
+            // Keep the "description=" key so the generated prop stays valid.
+            post_section_ += line.substr(sizeof("description") - 1);
         } else {
             (post ? post_section_ : pre_section_) += "\t";
             (post ? post_section_ : pre_section_) += line;
