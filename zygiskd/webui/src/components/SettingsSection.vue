@@ -2,7 +2,8 @@
 /* Settings section — theme + language. */
 import { ref } from "vue";
 import { useLocale } from "../composables/useLocale";
-import type { LocaleCode } from "../composables/useLocale";
+import { AUTO_LOCALE } from "../composables/useLocale";
+import type { LocalePref } from "../composables/useLocale";
 import { THEMES, applyTheme, getThemePref, setThemePref } from "../composables/useTheme";
 import type { ThemePref } from "../composables/useTheme";
 import Card from "./atoms/Card.vue";
@@ -23,7 +24,7 @@ function onTheme(e: Event): void {
 }
 
 function onLang(e: Event): void {
-  setLocale((e.target as HTMLSelectElement).value as LocaleCode);
+  setLocale((e.target as HTMLSelectElement).value as LocalePref);
 }
 </script>
 
@@ -41,6 +42,7 @@ function onLang(e: Event): void {
       <div class="setting-row">
         <span class="s-label">{{ t("settings.language") }}</span>
         <select :value="locale" @change="onLang">
+          <option :value="AUTO_LOCALE">{{ t("settings.languageAuto") }}</option>
           <option v-for="[code, name] in availableLocales" :key="code" :value="code">
             {{ name }}
           </option>

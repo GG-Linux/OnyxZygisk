@@ -1,0 +1,67 @@
+{
+  "navbar": {
+    "status": "ステータス",
+    "modules": "モジュール",
+    "fn": "FN",
+    "logs": "ログ",
+    "settings": "設定"
+  },
+  "header": {
+    "subtitle": "ptrace ベースの Zygisk"
+  },
+  "common": {
+    "loading": "読み込み中…",
+    "refresh": "更新",
+    "enabled": "有効",
+    "disabled": "無効",
+    "error": "エラー"
+  },
+  "status": {
+    "monitor": "モニター",
+    "version": "バージョン",
+    "root": "Root 実装",
+    "daemon": "デーモン",
+    "zygote": "Zygote",
+    "running": "実行中",
+    "stopped": "停止中",
+    "working": "稼働中",
+    "unknown": "不明",
+    "error": "エラー",
+    "none": "なし",
+    "noStatus": "（モニターの状態なし）"
+  },
+  "modules": {
+    "hint": "/data/adb/modules 内の Zygisk モジュール",
+    "empty": "インストール済みの Zygisk モジュールがありません",
+    "unknownAuthor": "不明"
+  },
+  "fn": {
+    "hint": "FN ノードは /data/adb/onyxzygisk/fn にあります",
+    "empty": "FN ノードがありません",
+    "trigger": "トリガー",
+    "scope": "スコープ",
+    "enabledMsg": "FN ノード「%s」を有効化しました（次の fork から有効）",
+    "disabledMsg": "FN ノード「%s」を無効化しました（次の fork から無効）"
+  },
+  "logs": {
+    "lines": "行数",
+    "auto": "自動",
+    "empty": "（ログなし）",
+    "filter": "フィルタ…",
+    "copy": "コピー",
+    "copied": "コピーしました ✓",
+    "noMatch": "一致する行がありません"
+  },
+  "settings": {
+    "appearance": "外観",
+    "theme": "テーマ",
+    "themeSystem": "システムに従う",
+    "themeLight": "ライト",
+    "themeDark": "ダーク",
+    "themeAmoled": "AMOLED",
+    "language": "言語",
+    "languageAuto": "自動",
+    "about": "このモジュールについて",
+    "aboutText": "OnyxZygisk — ptrace ベースの Zygisk 実装で、FN（Functional Node）モジュールに対応しています。NeoZygisk のフォークです。"
+  }
+}

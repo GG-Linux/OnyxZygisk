@@ -60,6 +60,7 @@
     "themeDark": "深色",
     "themeAmoled": "纯黑",
     "language": "语言",
+    "languageAuto": "自动",
     "about": "关于",
     "aboutText": "OnyxZygisk —— 基于 ptrace 的 Zygisk 实现，支持 FN（Functional Node）模块。fork 自 NeoZygisk。"
   }

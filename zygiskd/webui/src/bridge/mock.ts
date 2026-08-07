@@ -27,6 +27,15 @@ const DATA = {
     log1: "欢迎使用 OnyxZygisk (v1.0)",
     log4: "手动触发 post-fs-data.sh",
   },
+  ja_JP: {
+    moduleDesc1: "Play Integrity 認証を修正",
+    moduleDesc2: "TEE が壊れた端末で keybox を偽装",
+    moduleDesc3: "Riru/Zygisk フレームワーク",
+    fn1Name: "ネットワークガード",
+    fn2Name: "プロパティシールド",
+    log1: "OnyxZygisk へようこそ (v1.0)",
+    log4: "post-fs-data.sh の手動実行",
+  },
 } as const;
 
 export function devResponse(cmd: string): string {

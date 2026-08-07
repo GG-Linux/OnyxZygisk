@@ -60,6 +60,7 @@
     "themeDark": "Dark",
     "themeAmoled": "AMOLED",
     "language": "Language",
+    "languageAuto": "Auto",
     "about": "About",
     "aboutText": "OnyxZygisk — a Zygisk implementation via ptrace, with FN (Functional Node) modules. Fork of NeoZygisk."
   }
