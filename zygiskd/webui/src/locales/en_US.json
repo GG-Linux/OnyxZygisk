@@ -46,7 +46,11 @@
   "logs": {
     "lines": "Lines",
     "auto": "Auto",
-    "empty": "(no logs)"
+    "empty": "(no logs)",
+    "filter": "Filter…",
+    "copy": "Copy",
+    "copied": "Copied ✓",
+    "noMatch": "No matching lines"
   },
   "settings": {
     "appearance": "Appearance",
