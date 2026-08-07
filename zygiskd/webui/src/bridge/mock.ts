@@ -48,7 +48,6 @@ export function devResponse(cmd: string): string {
       "daemon=1",
       "workdir=/data/adb/onyxzygisk",
       "@@monitor",
-      "\tOnyxZygisk\tv1.0",
       "\tmonitor: \t tracing",
       "",
       "\tzygote64:\t injected",
