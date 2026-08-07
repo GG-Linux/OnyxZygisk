@@ -88,17 +88,31 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   margin: 0 auto;
   display: flex;
   align-items: center;
-  gap: 14px;
-  background: var(--surface);
+  gap: 16px;
+  background:
+    radial-gradient(130% 200% at 100% -20%, var(--primary-bg), transparent 50%), var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-hero);
-  padding: 18px 20px;
+  padding: 20px;
   transition:
     padding 0.25s ease,
     border-radius 0.25s ease,
     background-color 0.25s ease,
     box-shadow 0.25s ease;
+}
+/* Brand accent line along the bottom edge of the expanded hero. */
+.hero::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--primary), transparent);
+  opacity: 0.55;
+  pointer-events: none;
 }
 .hero--compact {
   padding: calc(10px + env(safe-area-inset-top, 0px)) 20px 10px;
@@ -111,14 +125,19 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   backdrop-filter: blur(18px) saturate(1.6);
   box-shadow: none;
 }
+.hero--compact::after {
+  display: none;
+}
 .hero__icon {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  height: 60px;
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  background: var(--primary-bg);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 120% at 80% 20%, var(--primary-bg), transparent 55%),
+    linear-gradient(135deg, var(--primary-bg), transparent 65%);
   transition:
     width 0.25s ease,
     height 0.25s ease,
@@ -126,8 +145,8 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
 }
 .hero__glyph {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   background-color: var(--primary);
   -webkit-mask: url("/icons/syringe.svg") center / contain no-repeat;
   mask: url("/icons/syringe.svg") center / contain no-repeat;
@@ -144,25 +163,40 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   width: 24px;
   height: 24px;
 }
+/* Compact bar: regular-size title, no status badge (reads as a toolbar). */
+.hero--compact .hero__title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.hero--compact .badge {
+  display: none;
+}
 .hero__body {
   flex: 1;
   min-width: 0;
 }
 .hero__title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-  line-height: 1.3;
+  font-size: 20px;
+  font-weight: 750;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
 }
 .hero__sub {
-  font-size: 12px;
-  color: var(--text3);
-  margin-top: 2px;
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 3px;
 }
 .hero__chips {
   display: flex;
   gap: 6px;
-  margin-top: 6px;
+  margin-top: 7px;
   flex-wrap: wrap;
+}
+/* Slightly stronger badge in the expanded hero (tint border via currentColor). */
+.hero .badge {
+  font-size: 13px;
+  padding: 5px 14px;
+  border: 1px solid transparent;
+  border-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 </style>
