@@ -49,7 +49,9 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
 
 <template>
   <header class="hero" :class="{ 'hero--compact': compact }">
-    <div class="hero__icon"><img src="/tux.png" alt="Tux" /></div>
+    <div class="hero__icon" aria-hidden="true">
+      <span class="hero__glyph"></span>
+    </div>
     <div class="hero__body">
       <div class="hero__title">OnyxZygisk</div>
       <div v-if="!compact" class="hero__sub">{{ t("header.subtitle") }}</div>
@@ -122,10 +124,13 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
     height 0.25s ease,
     border-radius 0.25s ease;
 }
-.hero__icon img {
+.hero__glyph {
+  display: block;
   width: 34px;
   height: 34px;
-  object-fit: contain;
+  background-color: var(--primary);
+  -webkit-mask: url("/icons/syringe.svg") center / contain no-repeat;
+  mask: url("/icons/syringe.svg") center / contain no-repeat;
   transition:
     width 0.25s ease,
     height 0.25s ease;
@@ -135,7 +140,7 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   height: 36px;
   border-radius: 10px;
 }
-.hero--compact .hero__icon img {
+.hero--compact .hero__glyph {
   width: 24px;
   height: 24px;
 }
