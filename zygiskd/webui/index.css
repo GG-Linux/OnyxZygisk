@@ -124,6 +124,19 @@ pre {
 .btn:hover { background: var(--surface2); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 .btn-primary:hover { background: var(--primary-hover); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.btn-danger { color: var(--red); border-color: var(--red); background: transparent; }
+.btn-danger:hover { background: var(--red-bg); }
+
+/* ── input row ── */
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.row input[type="text"] { flex: 1; min-width: 160px; width: auto; }
+
+/* ── table (APatch config) ── */
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th, .table td { text-align: left; padding: 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table th { color: var(--text3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+.table td.empty { color: var(--text2); text-align: center; padding: 20px; }
 
 /* ── toolbar / inputs ── */
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }

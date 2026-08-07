@@ -36,7 +36,11 @@ async function load() {
 
     ctx.clear(tbody);
     if (!rows.length) {
-      tbody.append(ctx.el("tr").append(ctx.el("td", "empty", ctx.t("apatch.empty"))));
+      const tr = ctx.el("tr");
+      const td = ctx.el("td", "empty", ctx.t("apatch.empty"));
+      td.colSpan = 5;
+      tr.append(td);
+      tbody.append(tr);
     }
     rows.forEach((r, idx) => {
       const tr = ctx.el("tr");
@@ -49,7 +53,7 @@ async function load() {
       const exclSw = toggle(r.exclude, () => { r.exclude = !r.exclude; return persist(); });
       exclCell.append(exclSw);
       tr.append(exclCell);
-      const rm = ctx.el("button", "btn small danger", ctx.t("apatch.remove"));
+      const rm = ctx.el("button", "btn btn-sm btn-danger", ctx.t("apatch.remove"));
       rm.addEventListener("click", async () => {
         rows.splice(idx, 1);
         await persist();
