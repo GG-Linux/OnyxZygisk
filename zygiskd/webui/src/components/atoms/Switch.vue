@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/* Switch — the square track/knob toggle (.switch). Bound with v-model:checked. */
+/* Switch — pill toggle (.switch). Bound with v-model:checked. */
 const checked = defineModel<boolean>("checked", { default: false });
 </script>
 

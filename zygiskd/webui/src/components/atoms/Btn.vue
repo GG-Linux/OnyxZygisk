@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/* Btn — the square, hard-shadowed action button (.btn / .btn-primary / .btn-danger / .btn-sm). */
+/* Btn — action button (.btn / .btn-primary / .btn-danger / .btn-sm). */
 import { computed } from "vue";
 
 const props = withDefaults(

@@ -1,12 +1,9 @@
 <script setup lang="ts">
-/* FN section — the Functional Node list, enabled/disabled via the state flag
- * (takes effect on the next fork, like the old version). */
 import { onMounted, ref } from "vue";
 import { fetchState, fmtVer, setFnEnabled } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import Btn from "./atoms/Btn.vue";
-import ModuleCard from "./molecules/ModuleCard.vue";
-import Pill from "./atoms/Pill.vue";
+import Card from "./atoms/Card.vue";
 import Switch from "./atoms/Switch.vue";
 import Toolbar from "./atoms/Toolbar.vue";
 import type { FnNodeInfo } from "../types";
@@ -42,10 +39,6 @@ async function toggle(n: FnNodeInfo, enabled: boolean) {
   }
 }
 
-function statusVariant(status: string): "green" | "gray" | "orange" {
-  return status === "enabled" ? "green" : status === "disabled" ? "gray" : "orange";
-}
-
 onMounted(load);
 </script>
 
@@ -61,25 +54,39 @@ onMounted(load);
     <div v-if="loading" class="empty">{{ t("common.loading") }}</div>
     <div v-else-if="error" class="empty">Error: {{ error }}</div>
     <div v-else-if="!nodes.length" class="empty">{{ t("fn.empty") }}</div>
-    <template v-else>
-      <ModuleCard
-        v-for="n in nodes"
+    <Card v-else>
+      <div
+        v-for="(n, i) in nodes"
         :key="n.id"
-        :name="n.name || n.id"
-        :meta="`${fmtVer(n.version)} · ${t('fn.trigger')}: ${n.trigger || 'app'} · ${t('fn.scope')}: ${n.scope || 'all'}`"
+        class="fn-row"
+        :class="{ 'fn-row--border': i > 0 }"
       >
-        <template #tags>
-          <Pill :variant="statusVariant(n.status)">{{ n.status }}</Pill>
-        </template>
-        <template #extra>
-          <Switch
-            :checked="n.status === 'enabled'"
-            @update:checked="toggle(n, $event)"
-          />
-        </template>
-      </ModuleCard>
-    </template>
+        <div class="fn-row__left">
+          <div class="fn-row__main">
+            <span class="fn-row__name">{{ n.name || n.id }}</span>
+            <span class="fn-row__ver">{{ fmtVer(n.version) }}</span>
+          </div>
+          <div class="fn-row__meta">
+            {{ n.trigger || "app" }} / {{ n.scope || "all" }}
+          </div>
+        </div>
+        <Switch
+          :checked="n.status === 'enabled'"
+          @update:checked="toggle(n, $event)"
+        />
+      </div>
+    </Card>
 
     <div class="msg">{{ msg }}</div>
   </section>
 </template>
+
+<style scoped>
+.fn-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; gap: 12px; }
+.fn-row--border { border-top: 1px solid var(--border); }
+.fn-row__left { flex: 1; min-width: 0; }
+.fn-row__main { display: flex; align-items: baseline; gap: 8px; }
+.fn-row__name { font-size: 14px; font-weight: 600; }
+.fn-row__ver { font-size: 12px; color: var(--text3); }
+.fn-row__meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+</style>

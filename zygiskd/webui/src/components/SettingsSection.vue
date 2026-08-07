@@ -50,9 +50,9 @@ function onLang(e: Event): void {
       </div>
     </Card>
 
-    <Card :title="t('settings.about')">
+    <!-- <Card :title="t('settings.about')">
       <p class="hint">{{ t("settings.aboutText") }}</p>
-    </Card>
+    </Card> -->
   </section>
 </template>
 
