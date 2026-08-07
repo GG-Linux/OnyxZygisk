@@ -43,6 +43,13 @@
   </button>
 </nav>
 
+<!-- APatch compat: some APatch builds inject the interface as window.apatch
+     rather than window.ksu. Alias it so the KernelSU-style bridge works. -->
+<script>
+  if (typeof window.apatch !== "undefined" && typeof window.ksu === "undefined") {
+    window.ksu = window.apatch;
+  }
+</script>
 <script src="js/app.js" type="module"></script>
 </body>
 </html>

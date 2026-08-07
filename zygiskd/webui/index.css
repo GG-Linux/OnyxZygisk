@@ -1,41 +1,41 @@
 /* DNAZygisk WebUI — base, themes, layout, components */
 
-/* ── theme tokens ── */
+/* ── theme tokens (Naive UI palette, Zygisk Next look) ── */
 :root, [data-theme="light"] {
-  --bg: #f9f6ef; --surface: #ffffff; --surface2: #f0ebe0; --border: #e5dfd4;
-  --text: #1a1612; --text2: #7c7266; --text3: #a89f93;
-  --primary: #c96442; --primary-hover: #b5573a; --primary-bg: rgba(201,100,66,.08);
-  --green: #3a8a5c; --green-bg: rgba(58,138,92,.10);
-  --red: #c44a3f; --red-bg: rgba(196,74,63,.10);
-  --orange: #c08830; --orange-bg: rgba(192,136,48,.10);
-  --shadow: 0 1px 3px rgba(0,0,0,.04), 0 1px 2px rgba(0,0,0,.06);
-  --nav-bg: rgba(255,255,255,.86);
+  --bg: #ffffff; --surface: #ffffff; --surface2: #f5f5f7; --border: #ededf2;
+  --text: #333639; --text2: #6b7075; --text3: #9ca1a6;
+  --primary: #18a058; --primary-hover: #36ad6a; --primary-bg: rgba(24,160,88,.10);
+  --green: #18a058; --green-bg: rgba(24,160,88,.10);
+  --red: #d03050; --red-bg: rgba(208,48,80,.10);
+  --orange: #f0a020; --orange-bg: rgba(240,160,32,.12);
+  --shadow: 0 1px 2px rgba(0,0,0,.04);
+  --nav-bg: rgba(255,255,255,.88);
 }
 [data-theme="dark"] {
-  --bg: #1f1d1a; --surface: #292724; --surface2: #322f2b; --border: #3d3a35;
-  --text: #ece7de; --text2: #a89f93; --text3: #7c7266;
-  --primary: #e08b6a; --primary-hover: #eb9a7a; --primary-bg: rgba(224,139,106,.14);
-  --green: #6bbf8a; --green-bg: rgba(107,191,138,.14);
-  --red: #e5796c; --red-bg: rgba(229,121,108,.14);
-  --orange: #d9a54a; --orange-bg: rgba(217,165,74,.14);
-  --shadow: 0 1px 3px rgba(0,0,0,.30), 0 1px 2px rgba(0,0,0,.40);
-  --nav-bg: rgba(41,39,36,.86);
+  --bg: #101014; --surface: #18181c; --surface2: #202024; --border: rgba(255,255,255,.09);
+  --text: rgba(255,255,255,.82); --text2: rgba(255,255,255,.52); --text3: rgba(255,255,255,.38);
+  --primary: #63e2b7; --primary-hover: #7fe7c4; --primary-bg: rgba(99,226,183,.15);
+  --green: #63e2b7; --green-bg: rgba(99,226,183,.15);
+  --red: #e88080; --red-bg: rgba(232,128,128,.15);
+  --orange: #f2c97d; --orange-bg: rgba(242,201,125,.15);
+  --shadow: 0 1px 2px rgba(0,0,0,.4);
+  --nav-bg: rgba(16,16,20,.9);
 }
 [data-theme="amoled"] {
-  --bg: #000000; --surface: #0c0b0a; --surface2: #151311; --border: #24211d;
-  --text: #ece7de; --text2: #a89f93; --text3: #6b635a;
-  --primary: #e08b6a; --primary-hover: #eb9a7a; --primary-bg: rgba(224,139,106,.16);
-  --green: #6bbf8a; --green-bg: rgba(107,191,138,.16);
-  --red: #e5796c; --red-bg: rgba(229,121,108,.16);
-  --orange: #d9a54a; --orange-bg: rgba(217,165,74,.16);
-  --shadow: 0 1px 3px rgba(0,0,0,.6);
-  --nav-bg: rgba(0,0,0,.9);
+  --bg: #000000; --surface: #0b0b0d; --surface2: #141417; --border: rgba(255,255,255,.08);
+  --text: rgba(255,255,255,.82); --text2: rgba(255,255,255,.5); --text3: rgba(255,255,255,.36);
+  --primary: #63e2b7; --primary-hover: #7fe7c4; --primary-bg: rgba(99,226,183,.16);
+  --green: #63e2b7; --green-bg: rgba(99,226,183,.16);
+  --red: #e88080; --red-bg: rgba(232,128,128,.16);
+  --orange: #f2c97d; --orange-bg: rgba(242,201,125,.16);
+  --shadow: 0 1px 2px rgba(0,0,0,.7);
+  --nav-bg: rgba(0,0,0,.92);
 }
 
 :root {
-  --radius: 16px; --radius-sm: 10px;
-  --font: "Söhne", -apple-system, "Helvetica Neue", "Noto Sans SC", "PingFang SC", Arial, sans-serif;
-  --mono: "Söhne Mono", "JetBrains Mono", "Fira Code", Consolas, monospace;
+  --radius: 10px; --radius-sm: 6px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", Consolas, monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
