@@ -109,7 +109,7 @@ onUnmounted(() => window.clearInterval(timer));
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
 .status-item {
   background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius);
-  padding: 14px 16px; box-shadow: var(--shadow);
+  padding: 14px 16px;
 }
 .status-item .label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .5px; }
 .status-item .val { font-size: 17px; font-weight: 700; margin-top: 3px; }

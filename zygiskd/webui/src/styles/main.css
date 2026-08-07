@@ -1,6 +1,5 @@
 /* OnyxZygisk WebUI — base, themes, layout, components
- * Square & solid style: sharp corners, 2px borders, hard offset shadows,
- * buttons press down (translate + shadow collapse) on tap.
+ * Square & flat style: sharp corners, 2px borders, no shadows.
  *
  * Ported 1:1 from the pre-Vue version's index.css. Section-specific styles
  * (.status-grid / .monitor-* / .setting-row) live in their section components.
@@ -16,8 +15,6 @@
   --green: #18a058; --green-bg: rgba(24,160,88,.10);
   --red: #d03050; --red-bg: rgba(208,48,80,.10);
   --orange: #f0a020; --orange-bg: rgba(240,160,32,.12);
-  --shadow: 3px 3px 0 #d8d8de;
-  --shadow-sm: 2px 2px 0 #d8d8de;
 }
 [data-theme="dark"] {
   --bg: #101014; --surface: #18181c; --surface2: #202024; --border: rgba(255,255,255,.09);
@@ -28,8 +25,6 @@
   --green: #63e2b7; --green-bg: rgba(99,226,183,.15);
   --red: #e88080; --red-bg: rgba(232,128,128,.15);
   --orange: #f2c97d; --orange-bg: rgba(242,201,125,.15);
-  --shadow: 3px 3px 0 rgba(0,0,0,.6);
-  --shadow-sm: 2px 2px 0 rgba(0,0,0,.6);
 }
 [data-theme="amoled"] {
   --bg: #000000; --surface: #0b0b0d; --surface2: #141417; --border: rgba(255,255,255,.08);
@@ -40,8 +35,6 @@
   --green: #63e2b7; --green-bg: rgba(99,226,183,.16);
   --red: #e88080; --red-bg: rgba(232,128,128,.16);
   --orange: #f2c97d; --orange-bg: rgba(242,201,125,.16);
-  --shadow: 3px 3px 0 rgba(0,0,0,.8);
-  --shadow-sm: 2px 2px 0 rgba(0,0,0,.8);
 }
 
 :root {
@@ -75,7 +68,7 @@ a { color: var(--primary); text-decoration: none; }
 .header-badge {
   font-size: 11px; font-weight: 600; padding: 5px 11px; border-radius: var(--radius-sm);
   background: var(--surface2); color: var(--text2);
-  border: 2px solid var(--border-strong); box-shadow: var(--shadow-sm); white-space: nowrap;
+  border: 2px solid var(--border-strong); white-space: nowrap;
 }
 .header-badge.ok { color: var(--green); border-color: var(--green); background: var(--green-bg); }
 
@@ -95,7 +88,7 @@ a { color: var(--primary); text-decoration: none; }
 /* ── cards ── */
 .card {
   background: var(--surface); border: 2px solid var(--border-strong);
-  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; box-shadow: var(--shadow);
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px;
 }
 .card-title { font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .5px; }
 
@@ -110,7 +103,7 @@ pre {
 /* ── module / fn card ── */
 .mod-card {
   background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius);
-  padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--shadow);
+  padding: 14px 16px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px;
 }
 .mod-body { flex: 1; min-width: 0; }
 .mod-name { font-size: 14px; font-weight: 600; }
@@ -126,22 +119,22 @@ pre {
 .pill-orange { background: var(--orange-bg); color: var(--orange); border-color: var(--orange); }
 .pill-primary { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
 
-/* ── buttons (solid squares, hard shadow, press down on tap) ── */
+/* ── buttons (flat squares; :active only shifts the tint) ── */
 .btn {
   appearance: none; border: 2px solid var(--border-strong); background: var(--surface2); color: var(--text);
   height: 34px; padding: 0 14px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500;
   cursor: pointer; font-family: var(--font); display: inline-flex; align-items: center; justify-content: center;
-  box-shadow: var(--shadow-sm);
-  transition: transform .06s, box-shadow .06s, color .15s, border-color .15s, background-color .15s;
+  transition: color .15s, border-color .15s, background-color .15s;
 }
 .btn:hover { color: var(--primary); border-color: var(--primary); }
-.btn:active { transform: translate(2px, 2px); box-shadow: none; }
+.btn:active { background: var(--primary-bg); color: var(--primary); border-color: var(--primary); }
 .btn-primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: var(--on-primary); }
-.btn-primary:active { transform: translate(2px, 2px); box-shadow: none; }
+.btn-primary:active { background: var(--primary-hover); }
 .btn-sm { height: 28px; padding: 0 10px; font-size: 13px; }
 .btn-danger { color: var(--red); border-color: var(--red); background: var(--surface); }
 .btn-danger:hover { color: var(--red); border-color: var(--red); background: var(--red-bg); }
+.btn-danger:active { background: var(--red-bg); }
 
 /* ── input row ── */
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
@@ -159,20 +152,20 @@ pre {
 input[type="number"], input[type="text"] {
   background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm);
   color: var(--text); padding: 6px 10px; font-size: 13px; width: 72px; outline: none; font-family: var(--font);
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s;
 }
-input:focus { border-color: var(--primary); box-shadow: 2px 2px 0 var(--primary-bg); }
+input:focus { border-color: var(--primary); }
 label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text2); cursor: pointer; }
 select {
   background: var(--surface); border: 2px solid var(--border-strong); border-radius: var(--radius-sm);
   color: var(--text); padding: 7px 28px 7px 10px; font-size: 13px; outline: none; font-family: var(--font); cursor: pointer;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s;
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--text2) 50%), linear-gradient(135deg, var(--text2) 50%, transparent 50%);
   background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
   background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
 }
-select:focus { border-color: var(--primary); box-shadow: 2px 2px 0 var(--primary-bg); }
+select:focus { border-color: var(--primary); }
 
 /* ── toggle switch (square track and knob) ── */
 .switch { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
@@ -185,7 +178,6 @@ select:focus { border-color: var(--primary); box-shadow: 2px 2px 0 var(--primary
 .switch .slider::before {
   content: ""; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px;
   background: #fff; border-radius: var(--radius-sm);
-  box-shadow: 1px 1px 0 var(--border-strong);
   transition: transform .2s cubic-bezier(.4,0,.2,1);
 }
 .switch input:checked + .slider { background: var(--primary); border-color: var(--primary); }
