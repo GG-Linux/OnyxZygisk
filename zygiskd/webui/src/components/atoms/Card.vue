@@ -1,5 +1,5 @@
 <script setup lang="ts">
-/* Card — the bordered panel (.card) with an optional uppercase .card-title. */
+/* Card — the rounded panel (.card) with an optional uppercase title. */
 defineProps<{ title?: string }>();
 </script>
 

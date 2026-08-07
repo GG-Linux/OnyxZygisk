@@ -6,11 +6,15 @@
     "logs": "日志",
     "settings": "设置"
   },
+  "header": {
+    "subtitle": "基于 ptrace 的 Zygisk"
+  },
   "common": {
     "loading": "加载中…",
     "refresh": "刷新",
     "enabled": "已启用",
-    "disabled": "已禁用"
+    "disabled": "已禁用",
+    "error": "错误"
   },
   "status": {
     "monitor": "监控器",
@@ -20,6 +24,9 @@
     "zygote": "Zygote",
     "running": "运行中",
     "stopped": "已停止",
+    "working": "工作中",
+    "unknown": "未知",
+    "error": "错误",
     "none": "无",
     "noStatus": "（无监控器状态）"
   },
@@ -39,7 +46,11 @@
   "logs": {
     "lines": "行数",
     "auto": "自动",
-    "empty": "（无日志）"
+    "empty": "（无日志）",
+    "filter": "过滤…",
+    "copy": "复制",
+    "copied": "已复制 ✓",
+    "noMatch": "无匹配行"
   },
   "settings": {
     "appearance": "外观",

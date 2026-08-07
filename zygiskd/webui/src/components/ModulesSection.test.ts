@@ -38,6 +38,7 @@ const state = (over: Partial<StateData> = {}): StateData => ({
 });
 
 beforeEach(() => {
+  vi.mocked(fetchState).mockClear();
   vi.mocked(fetchState).mockResolvedValue(state());
 });
 
