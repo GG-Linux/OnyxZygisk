@@ -5,17 +5,18 @@ OnyxZygisk 的 WebUI 遵循 **KernelSU 模块 WebUI 规范**：静态页面放�
 WebView 直接读取——**不监听任何网络端口，不依赖 TCP**，守护进程完全不参与
 页面传输。
 
-## 页面文件
+WebUI 基于 **Vue 3 + Vite + TypeScript** 构建，源码在仓库的
+`zygiskd/webui/`，构建产物由 Gradle 自动放入模块的 `webroot/`。
+
+## 安装后的页面文件
 
 ```
 /data/adb/modules/onyxzygisk/webroot/
-├── index.html    # 入口（规范要求必须存在）
-├── app.js        # 页面逻辑（bridge 驱动）
-└── style.css
+├── index.html     # 入口（规范要求必须存在）
+└── assets/        # Vite 构建产物（js/css，路径相对化）
+    ├── index-*.js
+    └── index-*.css
 ```
-
-直接编辑这些文件即可自定义界面，**无需重新编译模块**；更新模块时会被 zip
-中的版本覆盖。
 
 ## 打开方式
 
@@ -25,7 +26,7 @@ WebView 直接读取——**不监听任何网络端口，不依赖 TCP**，守�
 | APatch Manager | 模块列表 → OnyxZygisk → WebUI |
 | MMRL | 模块列表 → WebUI |
 
-页面在普通浏览器里打开时会显示引导提示（缺少桥接），功能不可用。
+页面在普通浏览器里打开时会显示引导提示（缺少桥接，走 mock 数据），功能不可用。
 
 ## 工作原理（KernelSU 标准）
 
@@ -46,8 +47,29 @@ WebView 直接读取——**不监听任何网络端口，不依赖 TCP**，守�
 | FN 模块 | FN 节点列表（trigger/scope/状态），启用/禁用 |
 | 日志 | logcat 中 `zygiskd` / `zygisk-core64|32` / `zygisk-sh` 的日志 |
 
+## 构建
+
+源码位于 `zygiskd/webui/`，是一个标准的 Vite 工程：
+
+```sh
+cd zygiskd/webui
+npm install          # 首次（Gradle 构建时会自动执行 npm ci）
+npm run dev          # 开发预览：PC 浏览器 + mock 数据，热更新
+npm run build        # 类型检查（vue-tsc）+ 产物到 dist/
+```
+
+模块 zip 构建时 Gradle 的 `webuiBuild` 任务会自动执行 `npm run build`，
+并把 `dist/` 打包进 `webroot/`（依赖 Node.js ≥ 18，首次构建自动 `npm ci`）。
+
+> **注意**：`webroot/` 是构建产物，修改源码后必须重新 `npm run build`
+> 并重新打包模块才会生效；不要直接编辑安装后的 `webroot/`。
+
 ## 与既有实现的关系
 
 早期版本曾由 `zygiskd` 提供 loopback TCP HTTP 服务（端口 47654）作为访问
 通道。按 KernelSU 标准，该通道已移除：**静态文件直读 + JS bridge** 是
 生态内唯一标准方式，也避免了 SELinux 对 TCP 监听的额外权限需求。
+
+再早的版本是手写 ES modules（无构建步骤），可直接编辑 webroot 生效；改成
+Vue 3 + Vite + TypeScript 后，编译产物在代码可维护性和类型安全上更好，
+代价是需要构建步骤（见上节）。

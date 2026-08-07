@@ -5,21 +5,11 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>OnyxZygisk</title>
-<link rel="stylesheet" href="index.css">
 </head>
 <body>
 
-<header class="app-header">
-  <div class="header-icon"><img src="tux.png" alt="Tux" width="40" height="40"></div>
-  <div class="header-text">
-    <h1>OnyxZygisk</h1>
-    <div class="sub" id="header-sub">Zygisk Implementation</div>
-  </div>
-  <span class="header-badge" id="host-badge">--</span>
-</header>
-
-<!-- Single fixed page: all sections stacked here by the loader -->
-<main id="page_content"></main>
+<!-- Vue mounts the header + stacked sections here -->
+<main id="app"></main>
 
 <!-- APatch compat: some APatch builds inject the interface as window.apatch
      rather than window.ksu. Alias it so the KernelSU-style bridge works. -->
@@ -28,6 +18,6 @@
     window.ksu = window.apatch;
   }
 </script>
-<script src="js/app.js" type="module"></script>
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>

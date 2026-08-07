@@ -5,3 +5,11 @@ build
 local.properties
 Cargo.lock
 target
+
+# WebUI (Vue 3 + Vite)
+zygiskd/webui/node_modules/
+zygiskd/webui/dist/
+
+# Agent / tooling scratch
+.zcode/
+gradle/gradle-daemon-jvm.properties

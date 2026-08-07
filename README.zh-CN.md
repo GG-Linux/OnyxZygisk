@@ -16,7 +16,7 @@
 
 ## 亮点
 
-- **内置 WebUI** —— 由 `webroot/` 提供的多页控制面板,可在 KernelSU / APatch Manager / MMRL 中直接打开。包含仪表盘、模块列表、FN 管理、logcat 查看器,以及 APatch 页。支持浅色 / 深色 / 纯黑主题与多语言。详见 [docs/WEBUI.md](docs/WEBUI.md)。
+- **内置 WebUI** —— 基于 **Vue 3 + Vite + TypeScript** 的控制面板，以静态文件随 `webroot/` 提供，可在 KernelSU / APatch Manager / MMRL 中直接打开。包含仪表盘、模块列表、FN 管理、logcat 查看器。支持浅色 / 深色 / 纯黑主题与多语言。详见 [docs/WEBUI.md](docs/WEBUI.md)。
 - **FN(Functional Node)模块** —— 位于 Zygisk 核心之上的声明式、按作用域、可热插拔的扩展单元:脚本节点与原生节点,无需重启即可启用/禁用。详见 [docs/FN.md](docs/FN.md)。
 - **APatch 优先适配** —— `apd` 检测、真实 CSV 的 `package_config` 解析与原子写入、覆盖已知 root overlay 来源的干净命名空间卸载。详见 [docs/APATCH.md](docs/APATCH.md)。
 - **进阶隐藏** —— 精细的 DenyList,对进行 root 检测的应用隐藏 root 与模块痕迹。
