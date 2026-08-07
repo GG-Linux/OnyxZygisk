@@ -1,19 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { fetchState, fmtVer, parseMonitor } from "../api/system";
+/* Status section — the live monitor card. System state (including the hero
+ * in App.vue) comes from the shared MONITOR_STATE_KEY instance; when mounted
+ * standalone (unit tests) a local instance is created instead.
+ */
+import { inject } from "vue";
 import { useLocale } from "../composables/useLocale";
-import Card from "../components/atoms/Card.vue";
-import type { MonitorRow } from "../types";
+import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
+import type { MonitorState } from "../composables/useMonitorState";
+import Card from "./atoms/Card.vue";
 
-const { t, locale } = useLocale();
-
-const loading = ref(true);
-const error = ref<string | null>(null);
-const monitor = ref<MonitorRow[]>([]);
-const rootImpl = ref("");
-const version = ref("");
-
-let timer: number | undefined;
+const { t } = useLocale();
+// `null` default silences the injection warning when mounted standalone.
+const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
+const { loading, error, monitor } = state;
 
 function valClass(v: string): string {
   if (/not injected|stopped|exited|crashed|invalid/i.test(v)) return "err";
@@ -21,64 +20,11 @@ function valClass(v: string): string {
   if (/unknown/i.test(v)) return "warn";
   return "";
 }
-
-/** Overall hero badge derived from the live monitor rows. */
-const overall = computed(() => {
-  if (loading.value) return { key: "common.loading", cls: "badge--idle", spin: true };
-  if (error.value) return { key: "status.error", cls: "badge--err", spin: false };
-  const vals = monitor.value.filter((r) => r.label).map((r) => r.value);
-  if (!vals.length) return { key: "status.unknown", cls: "badge--idle", spin: false };
-  if (vals.some((v) => valClass(v) === "err"))
-    return { key: "status.stopped", cls: "badge--err", spin: false };
-  if (vals.some((v) => valClass(v) === "ok"))
-    return { key: "status.working", cls: "badge--ok", spin: false };
-  return { key: "status.unknown", cls: "badge--warn", spin: false };
-});
-
-async function load() {
-  try {
-    const d = await fetchState();
-    rootImpl.value = d.keys.root || "";
-    version.value = d.keys.version || "";
-    monitor.value = parseMonitor(d.monitor);
-    error.value = null;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-  } finally {
-    loading.value = false;
-  }
-}
-
-onMounted(() => {
-  load();
-  timer = window.setInterval(load, 6000);
-});
-onUnmounted(() => window.clearInterval(timer));
-// Reload on language switch (dev mock data follows the locale).
-watch(locale, () => load());
 </script>
 
 <template>
   <section class="section">
     <h2 class="section-title">{{ t("navbar.status") }}</h2>
-
-    <div class="hero">
-      <div class="hero__icon"><img src="/tux.png" alt="Tux" /></div>
-      <div class="hero__body">
-        <div class="hero__title">OnyxZygisk</div>
-        <div class="hero__chips">
-          <span v-if="rootImpl" class="chip chip--accent root-label">
-            <span class="root-label__text">{{ rootImpl }}</span>
-          </span>
-          <span v-if="version" class="chip">{{ fmtVer(version) }}</span>
-        </div>
-      </div>
-      <span class="badge" :class="overall.cls">
-        <span v-if="overall.spin" class="spinner"></span>
-        <span v-else class="dot"></span>
-        {{ t(overall.key) }}
-      </span>
-    </div>
 
     <Card :title="t('status.monitor')">
       <div v-if="loading" class="monitor-empty">{{ t("common.loading") }}</div>
@@ -98,47 +44,6 @@ watch(locale, () => load());
 </template>
 
 <style scoped>
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-hero);
-  padding: 18px;
-  margin-bottom: 14px;
-}
-.hero__icon {
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: var(--primary-bg);
-}
-.hero__icon img {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-}
-.hero__body {
-  flex: 1;
-  min-width: 0;
-}
-.hero__title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-.hero__chips {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
 .monitor-list {
   display: flex;
   flex-direction: column;

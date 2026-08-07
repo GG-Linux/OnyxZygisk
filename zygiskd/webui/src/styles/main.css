@@ -112,54 +112,6 @@ a {
   text-decoration: none;
 }
 
-/* ── header (sticky, frosted) ── */
-.app-header {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: var(--header-bg);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
-  backdrop-filter: blur(18px) saturate(1.6);
-  border-bottom: 1px solid var(--border);
-}
-.app-header__inner {
-  max-width: 720px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px;
-}
-.header-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: var(--primary-bg);
-}
-.header-icon img {
-  width: 26px;
-  height: 26px;
-  object-fit: contain;
-  display: block;
-}
-.header-titles {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-.header-title {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.2px;
-}
-.header-sub {
-  font-size: 11px;
-  color: var(--text3);
-}
-
 /* ── page container (single fixed page) ── */
 #page_content {
   max-width: 720px;

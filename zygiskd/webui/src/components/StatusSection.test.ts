@@ -26,13 +26,6 @@ beforeEach(() => {
 });
 
 describe("StatusSection", () => {
-  it("renders the root label from the fetched state", async () => {
-    const wrapper = mount(StatusSection);
-    await flushPromises();
-    expect(wrapper.find(".root-label__text").text()).toBe("APatch");
-    wrapper.unmount();
-  });
-
   it("renders monitor rows with labels and detail lines", async () => {
     const wrapper = mount(StatusSection);
     await flushPromises();
