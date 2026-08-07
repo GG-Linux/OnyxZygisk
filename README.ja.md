@@ -57,7 +57,7 @@ OnyxZygisk は、その土台となり着想を与えてくれたプロジェク
 - **Zygisk API** —— [topjohnwu](https://github.com/topjohnwu) / [Magisk](https://github.com/topjohnwu/Magisk)
 - **Zygisk Next**(スタンドアロンの ptrace 実装)—— [Dr-TSNG](https://github.com/Dr-TSNG/ZygiskNext)
 - **NeoZygisk**(OnyxZygisk はこれをベースにしています)—— [JingMatrix](https://github.com/JingMatrix/NeoZygisk)
-- **OnyxZygisk** —— Sai および[コントリビューター](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
+- **OnyxZygisk** —— Sai, Matsuzaka Yuki および[コントリビューター](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
 
 ## ライセンス
 

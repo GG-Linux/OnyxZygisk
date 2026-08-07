@@ -2,5 +2,5 @@ id=${moduleId}
 name=${moduleName}
 version=${versionName}
 versionCode=${versionCode}
-author=Sai
+author=Sai, Matsuzaka Yuki
 description= OnyxZygisk · Zygote injection via ptrace, with FN (Functional Node) modules and a built-in WebUI.

@@ -57,7 +57,7 @@ OnyxZygisk 站在它所建置於、所受啟發的專案的肩膀上:
 - **Zygisk API** —— [topjohnwu](https://github.com/topjohnwu) / [Magisk](https://github.com/topjohnwu/Magisk)
 - **Zygisk Next**(獨立 ptrace 實作)—— [Dr-TSNG](https://github.com/Dr-TSNG/ZygiskNext)
 - **NeoZygisk**(OnyxZygisk 基於此)—— [JingMatrix](https://github.com/JingMatrix/NeoZygisk)
-- **OnyxZygisk** —— Sai 與[貢獻者們](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
+- **OnyxZygisk** —— Sai, Matsuzaka Yuki 與[貢獻者們](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
 
 ## 授權條款
 

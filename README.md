@@ -57,7 +57,7 @@ OnyxZygisk stands on the shoulders of the projects it is built from and inspired
 - **Zygisk API** — [topjohnwu](https://github.com/topjohnwu) / [Magisk](https://github.com/topjohnwu/Magisk)
 - **Zygisk Next** (standalone ptrace implementation) — [Dr-TSNG](https://github.com/Dr-TSNG/ZygiskNext)
 - **NeoZygisk** (OnyxZygisk is based on this) — [JingMatrix](https://github.com/JingMatrix/NeoZygisk)
-- **OnyxZygisk** — Sai, and [contributors](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
+- **OnyxZygisk** — Sai, Matsuzaka Yuki, and [contributors](https://github.com/GG-Linux/OnyxZygisk/graphs/contributors)
 
 ## License
 
