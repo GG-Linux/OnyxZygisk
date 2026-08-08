@@ -72,6 +72,33 @@ this default is safe on a given device / Android version — the fallback does n
 cover a load that succeeds but yields a broken module (a zygote crash / boot
 loop), so real-hardware testing remains required.
 
+**Stage 5 — full lifecycle: unload + global teardown (done).**
+Making the loader the default surfaced a real gap: `ZygiskModule::tryUnload()`
+(called whenever a module opts into `zygisk::Option::DLCLOSE_MODULE_LIBRARY` —
+a normal, common thing modules do) unconditionally called `dlclose(handle)`.
+For a custom-loaded module `handle` is a `csoloader*`, not a `dlopen()` handle,
+so this was undefined behaviour on every such module once Stage 4 shipped.
+
+Fixed by giving `ZygiskModule` a `custom` bit (threaded through from
+`LoadedModule::custom` at both call sites) and a matching `UnloadModule(handle,
+custom)` in the seam that dispatches to `dlclose()` or `csoloader_unload()`
+accordingly. `csoloader_unload()` is csoloader's dlclose equivalent — it unmaps
+the module's segments and frees its per-load bookkeeping; the `csoloader`
+struct itself (heap-allocated in `LoadViaCustomLinker`) is freed alongside it.
+
+There is also a process-global piece: `csoloader_deinit()` (`linker_deinit()`
+in the vendored source) tears down TLS bookkeeping **shared by every
+custom-loaded module in the process**, not just the one being unloaded. Calling
+it while any custom-loaded module is still resident — the common case, since
+most modules never request `DLCLOSE_MODULE_LIBRARY` and stay loaded for the
+app's whole lifetime to keep their hooks active — would corrupt that module's
+TLS. So `DeinitCustomLoaderIfUsed()` only runs from `run_modules_post()`,
+inside the existing `modules.size() == modules_unloaded` branch (the same
+guard that already gates `clean_libc_trace()`): i.e. only once *every* module
+loaded in this process, custom or not, has actually been torn down. It is a
+no-op if the custom loader was never invoked in this process, and idempotent
+if called twice.
+
 ## Risk & verification
 
 A wrong loader means **zygote cannot load the module → boot loop**. This class
@@ -90,8 +117,14 @@ Required on-device checks before advancing a stage:
 
 ## Files
 
-- `include/module_loader.hpp` — the seam interface.
-- `common/module_loader.cpp` — Stage 1 implementation (system-linker wrapper);
-  the custom loader lands here behind the fallback.
+- `include/module_loader.hpp` — the seam interface: `LoadModuleFromMemfd`,
+  `UnloadModule`, `DeinitCustomLoaderIfUsed`.
+- `common/module_loader.cpp` — both load paths, the unload dispatch, and the
+  guarded global teardown.
 - `common/dl.cpp` — `DlopenMem`, the system-linker path / fallback.
-- `injector/solist.cpp` — existing reactive `solist` cleanup, retained.
+- `injector/solist.cpp` — existing reactive `solist` cleanup, retained for the
+  system-linker path.
+- `injector/module.cpp` — `ZygiskModule::tryUnload()` and the
+  `run_modules_post()` full-unload gate that also calls
+  `DeinitCustomLoaderIfUsed()`.
+- `external/csoloader/` — the vendored submodule itself.
