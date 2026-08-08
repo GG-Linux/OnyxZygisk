@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, ref } from "vue";
-import { fmtVer, setModuleHotplug } from "../api/system";
+import { fmtVer, restartZygote, setModuleHotplug } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
 import type { MonitorState } from "../composables/useMonitorState";
@@ -22,6 +22,12 @@ async function toggleHotplug(m: ModuleInfo, enabled: boolean) {
   msg.value = "";
   try {
     await setModuleHotplug(m.id, enabled);
+    if (enabled) {
+      // Standard Zygisk activation: restart the zygote once so the module
+      // takes effect in every (new) process without a device reboot.
+      await restartZygote();
+      msg.value = t("modules.hotplugRestarting");
+    }
     await load();
   } catch (e) {
     msg.value = e instanceof Error ? e.message : String(e);
