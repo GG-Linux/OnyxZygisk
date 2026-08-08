@@ -27,7 +27,10 @@ use std::{
     os::unix::net::{UnixListener, UnixStream},
     path::{Path, PathBuf},
     process::Command,
-    sync::{Arc, Mutex, OnceLock},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex, OnceLock,
+    },
     thread,
 };
 
@@ -58,6 +61,11 @@ struct AppContext {
 
 // Global paths, initialized once at startup.
 static TMP_PATH: OnceLock<String> = OnceLock::new();
+
+/// Set once system_server has started (late boot). `service.sh`-stage
+/// daemons (lspd etc.) must not run before this — they crash on an
+/// unprepared framework (lspd dies with SIGSEGV during early boot).
+static SYSTEM_SERVER_UP: AtomicBool = AtomicBool::new(false);
 static CONTROLLER_SOCKET: OnceLock<String> = OnceLock::new();
 static DAEMON_SOCKET_PATH: OnceLock<String> = OnceLock::new();
 
@@ -139,6 +147,9 @@ fn handle_connection(mut stream: UnixStream, context: Arc<AppContext>) -> Result
             // FN `boot` (service.sh) scripts run at late-start, after
             // system_server is up — the same point Magisk runs service.sh.
             r#fn::run_fn_scripts(TMP_PATH.get().unwrap(), "boot");
+            // Deferred service.sh of hot-plugged staged modules (lspd etc.)
+            // can only start now, on a prepared framework.
+            run_pending_staged_services();
         }
         // Heavier actions are spawned into a separate thread.
         _ => {
@@ -338,20 +349,12 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
         warn!("Failed to read modules directory: {}", constants::PATH_MODULES_DIR);
     }
 
-    if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_UPDATE_DIR) {
-        for entry in dir.flatten() {
-            let name = entry.file_name().into_string().unwrap_or_default();
-            if !hotplug_master_enabled() || !staged_update_ready(&name) || !hotplug_opted_in(&name)
-            {
-                continue;
-            }
-            let module_dir = entry.path();
-            if !module_dir.join(format!("zygisk/{arch}.so")).exists() {
-                continue;
-            }
-            let disabled = modules.get(&name).is_some_and(|(_, d)| *d);
-            modules.insert(name, (module_dir, disabled)); // staged wins
+    for (name, module_dir) in opted_in_staged_modules() {
+        if !module_dir.join(format!("zygisk/{arch}.so")).exists() {
+            continue;
         }
+        let disabled = modules.get(&name).is_some_and(|(_, d)| *d);
+        modules.insert(name, (module_dir, disabled)); // staged wins
     }
 
     let mut found: Vec<(String, PathBuf)> = modules
@@ -436,33 +439,99 @@ fn run_module_script(module_dir: &Path, script: &Path) {
 /// A staged module never went through the root solution's boot-time swap, so
 /// the daemons it depends on (e.g. LSPosed's `lspd`, started by
 /// `service.sh`) are not running — injecting its Zygisk `.so` alone would
-/// look like "no effect". Mirror the boot: run `post-fs-data.sh` then
-/// `service.sh` against the staged directory, in the background, once per
-/// opt-in. Completion is marked by `WORKDIR/hotplug_activated/<name>` so a
-/// daemon restart mid-activation retries instead of double-running.
+/// look like "no effect". Mirror the boot stages:
+///
+/// - `post-fs-data.sh` runs immediately (early stage), marked by
+///   `WORKDIR/hotplug_activated/<name>.post_fs_data`;
+/// - `service.sh` must wait for system_server (it crashes on an unprepared
+///   framework — lspd dies with SIGSEGV when started during early boot), so
+///   it only runs once `SYSTEM_SERVER_UP` is set — immediately when the
+///   hot-plug happens mid-session, or deferred to the SystemServerStarted
+///   handler when it happens during boot. Marked by
+///   `WORKDIR/hotplug_activated/<name>.service`.
 fn activate_staged_module(name: &str, module_dir: &Path) {
-    let marker = Path::new(TMP_PATH.get().unwrap())
-        .join("hotplug_activated")
-        .join(name);
-    if marker.exists() {
-        return;
-    }
     let dir = module_dir.to_path_buf();
-    let marker_clone = marker.clone();
-    std::thread::spawn(move || {
-        for script in ["post-fs-data.sh", "service.sh"] {
-            let p = dir.join(script);
-            if !p.is_file() {
+    let marker_post = Path::new(TMP_PATH.get().unwrap())
+        .join("hotplug_activated")
+        .join(format!("{name}.post_fs_data"));
+    if !marker_post.exists() {
+        let dir_clone = dir.clone();
+        let marker_clone = marker_post.clone();
+        std::thread::spawn(move || {
+            let p = dir_clone.join("post-fs-data.sh");
+            if p.is_file() {
+                run_module_script(&dir_clone, &p);
+            }
+            if let Some(parent) = marker_clone.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(&marker_clone, b"1");
+        });
+    }
+    let marker_svc = Path::new(TMP_PATH.get().unwrap())
+        .join("hotplug_activated")
+        .join(format!("{name}.service"));
+    if !marker_svc.exists() && SYSTEM_SERVER_UP.load(Ordering::Relaxed) {
+        let dir_clone = dir.clone();
+        let marker_clone = marker_svc.clone();
+        std::thread::spawn(move || {
+            let p = dir_clone.join("service.sh");
+            if p.is_file() {
+                run_module_script(&dir_clone, &p);
+            }
+            if let Some(parent) = marker_clone.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(&marker_clone, b"1");
+        });
+        info!("Hot-plug: scheduling service.sh for staged module `{}`", name);
+    }
+}
+
+/// Opted-in staged modules (master switch on, staged copy complete, per-module
+/// opt-in flag present). Shared by the module scan and the script stages.
+fn opted_in_staged_modules() -> Vec<(String, PathBuf)> {
+    let mut out = Vec::new();
+    if !hotplug_master_enabled() {
+        return out;
+    }
+    if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_UPDATE_DIR) {
+        for entry in dir.flatten() {
+            let name = entry.file_name().into_string().unwrap_or_default();
+            if !staged_update_ready(&name) || !hotplug_opted_in(&name) {
                 continue;
             }
-            run_module_script(&dir, &p);
+            out.push((name, entry.path()));
         }
-        if let Some(parent) = marker_clone.parent() {
-            let _ = fs::create_dir_all(parent);
+    }
+    out
+}
+
+/// Runs the deferred `service.sh` of opted-in staged modules once system_server
+/// is up (late boot) — the same point Magisk/KernelSU run service.sh.
+fn run_pending_staged_services() {
+    SYSTEM_SERVER_UP.store(true, Ordering::Relaxed);
+    for (name, dir) in opted_in_staged_modules() {
+        let marker = Path::new(TMP_PATH.get().unwrap())
+            .join("hotplug_activated")
+            .join(format!("{name}.service"));
+        if marker.exists() {
+            continue;
         }
-        let _ = fs::write(&marker_clone, b"1");
-    });
-    info!("Hot-plug: scheduling activation scripts for staged module `{}`", name);
+        let dir_clone = dir.clone();
+        let marker_clone = marker.clone();
+        std::thread::spawn(move || {
+            let p = dir_clone.join("service.sh");
+            if p.is_file() {
+                run_module_script(&dir_clone, &p);
+            }
+            if let Some(parent) = marker_clone.parent() {
+                let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(&marker_clone, b"1");
+        });
+        info!("Hot-plug: scheduling deferred service.sh for staged module `{}`", name);
+    }
 }
 
 /// Creates a sealed, read-only memfd containing the module's shared library.

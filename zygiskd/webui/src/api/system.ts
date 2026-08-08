@@ -196,14 +196,6 @@ export async function setHotplugMaster(enabled: boolean): Promise<void> {
   await exec(enabled ? `rm -f '${flag}'` : `touch '${flag}'`);
 }
 
-/** Restart the zygote once so already-running processes (and the manager
- * itself) pick up a newly opted-in module — the standard Zygisk activation
- * step: init respawns the zygote and every app restarts once. Without it,
- * only processes forked after the opt-in would see the module. */
-export async function restartZygote(): Promise<void> {
-  await exec("kill $(pidof zygote64 zygote zygote_secondary) 2>/dev/null; true");
-}
-
 /** Normalize version display: strip a leading v/V then add one. */
 export function fmtVer(v: string | undefined): string {
   const s = String(v || "?")
