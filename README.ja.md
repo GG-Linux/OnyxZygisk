@@ -61,4 +61,4 @@ OnyxZygisk は、その土台となり着想を与えてくれたプロジェク
 
 ## ライセンス
 
-[GPL-3.0](LICENSE)。OnyxZygisk は NeoZygisk の派生であり、同じライセンスと表示を維持します。
+[AGPL-3.0](LICENSE)。OnyxZygisk は NeoZygisk の派生であり、同じライセンスと表示を維持します。
