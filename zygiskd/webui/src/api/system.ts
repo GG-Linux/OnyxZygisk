@@ -123,7 +123,9 @@ export function parseMonitor(text: string): MonitorRow[] {
   for (const raw of String(text || "").split("\n")) {
     const s = raw.replace(/^\t+/, "").trim();
     if (!s) continue;
-    if (/^[a-zA-Z][a-zA-Z0-9_]*=/.test(s)) continue; // module metadata
+    // Module metadata ("key=value") and stray "=..." remnants from older
+    // monitor builds are not status rows.
+    if (/^[a-zA-Z][a-zA-Z0-9_]*=/.test(s) || s.startsWith("=")) continue;
     const m = /^([a-z][a-z0-9]*):\s*(.+)$/.exec(s);
     rows.push(m ? { label: m[1], value: m[2] } : { label: null, value: s });
   }

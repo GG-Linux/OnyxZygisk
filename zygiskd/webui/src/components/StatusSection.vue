@@ -3,10 +3,11 @@
  * in App.vue) comes from the shared MONITOR_STATE_KEY instance; when mounted
  * standalone (unit tests) a local instance is created instead.
  */
-import { inject } from "vue";
+import { computed, inject } from "vue";
 import { useLocale } from "../composables/useLocale";
 import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
 import type { MonitorState } from "../composables/useMonitorState";
+import type { MonitorRow } from "../types";
 import Card from "./atoms/Card.vue";
 
 const { t } = useLocale();
@@ -20,6 +21,16 @@ function valClass(v: string): string {
   if (/unknown/i.test(v)) return "warn";
   return "";
 }
+
+/** Display length of a row ("label: value" for labeled rows). */
+function rowLen(r: MonitorRow): number {
+  return r.label ? r.label.length + 2 + r.value.length : r.value.length;
+}
+
+/** Monitor rows render from the shortest line to the longest. */
+const sortedMonitor = computed(() =>
+  [...monitor.value].sort((a, b) => rowLen(a) - rowLen(b)),
+);
 </script>
 
 <template>
@@ -28,7 +39,7 @@ function valClass(v: string): string {
       <div v-if="loading" class="monitor-empty">{{ t("common.loading") }}</div>
       <div v-else-if="error" class="monitor-empty">{{ t("common.error") }}: {{ error }}</div>
       <div v-else-if="monitor.length" class="monitor-list">
-        <div v-for="(r, i) in monitor" :key="i">
+        <div v-for="(r, i) in sortedMonitor" :key="i">
           <div v-if="r.label" class="monitor-row">
             <div class="m-label">{{ r.label }}</div>
             <div class="m-val" :class="valClass(r.value)">{{ r.value }}</div>

@@ -181,5 +181,4 @@ private:
     std::string monitor_stop_reason_;
     std::string prop_path_;
     std::string pre_section_;
-    std::string post_section_;
 };
