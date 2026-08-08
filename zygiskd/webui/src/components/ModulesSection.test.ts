@@ -5,10 +5,10 @@ import type { StateData } from "../types";
 
 vi.mock("../api/system", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../api/system")>();
-  return { ...actual, fetchState: vi.fn() };
+  return { ...actual, fetchState: vi.fn(), setModuleHotplug: vi.fn() };
 });
 
-import { fetchState } from "../api/system";
+import { fetchState, setModuleHotplug } from "../api/system";
 
 const state = (over: Partial<StateData> = {}): StateData => ({
   keys: {},
@@ -22,6 +22,8 @@ const state = (over: Partial<StateData> = {}): StateData => ({
       zygisk: true,
       disabled: false,
       desc: "修复认证",
+      pendingUpdate: false,
+      hotplugEnabled: false,
     },
     {
       id: "tricky_store",
@@ -31,6 +33,8 @@ const state = (over: Partial<StateData> = {}): StateData => ({
       zygisk: true,
       disabled: true,
       desc: "",
+      pendingUpdate: false,
+      hotplugEnabled: false,
     },
   ],
   fns: [],
@@ -40,6 +44,7 @@ const state = (over: Partial<StateData> = {}): StateData => ({
 beforeEach(() => {
   vi.mocked(fetchState).mockClear();
   vi.mocked(fetchState).mockResolvedValue(state());
+  vi.mocked(setModuleHotplug).mockResolvedValue(undefined);
 });
 
 describe("ModulesSection", () => {
@@ -77,6 +82,8 @@ describe("ModulesSection", () => {
             zygisk: true,
             disabled: false,
             desc: "",
+            pendingUpdate: false,
+            hotplugEnabled: false,
           },
         ],
       }),
@@ -99,6 +106,8 @@ describe("ModulesSection", () => {
             zygisk: false,
             disabled: false,
             desc: "",
+            pendingUpdate: false,
+            hotplugEnabled: false,
           },
         ],
       }),
@@ -115,6 +124,37 @@ describe("ModulesSection", () => {
     const wrapper = mount(ModulesSection);
     await flushPromises();
     expect(wrapper.text()).toContain("No Zygisk modules installed");
+    wrapper.unmount();
+  });
+
+  it("shows a hotplug switch instead of the status text for a pending update, and toggles it", async () => {
+    vi.mocked(fetchState).mockResolvedValue(
+      state({
+        modules: [
+          {
+            id: "playintegrityfix",
+            name: "Play Integrity Fix",
+            version: "v18.8",
+            author: "chiteroman",
+            zygisk: true,
+            disabled: false,
+            desc: "",
+            pendingUpdate: true,
+            hotplugEnabled: false,
+          },
+        ],
+      }),
+    );
+    const wrapper = mount(ModulesSection);
+    await flushPromises();
+
+    expect(wrapper.find(".mod-row__status").exists()).toBe(false);
+    const toggle = wrapper.find(".mod-row__hotplug input[type=checkbox]");
+    expect((toggle.element as HTMLInputElement).checked).toBe(false);
+
+    await toggle.setValue(true);
+    await flushPromises();
+    expect(setModuleHotplug).toHaveBeenCalledWith("playintegrityfix", true);
     wrapper.unmount();
   });
 });

@@ -33,7 +33,9 @@
   "modules": {
     "hint": "/data/adb/modules 内の Zygisk モジュール",
     "empty": "インストール済みの Zygisk モジュールがありません",
-    "unknownAuthor": "不明"
+    "unknownAuthor": "不明",
+    "pendingUpdate": "更新が保留中です",
+    "hotplug": "今すぐ適用"
   },
   "fn": {
     "hint": "FN ノードは /data/adb/onyxzygisk/fn にあります",

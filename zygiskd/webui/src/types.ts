@@ -21,7 +21,7 @@ export interface StatusKeys {
   [key: string]: string | undefined;
 }
 
-/** A Zygisk module row (the `M|id|name|version|author|zygisk|disabled|desc` record). */
+/** A Zygisk module row (the `M|id|name|version|author|zygisk|disabled|desc|pending|hotplug` record). */
 export interface ModuleInfo {
   id: string;
   name: string;
@@ -30,6 +30,12 @@ export interface ModuleInfo {
   zygisk: boolean;
   disabled: boolean;
   desc: string;
+  /** A newer version is staged (KernelSU/APatch), confirmed fully written,
+   * waiting for the next reboot's official swap into the active directory. */
+  pendingUpdate: boolean;
+  /** Whether the user opted in to the daemon using the staged version early,
+   * ahead of that reboot. Only meaningful when `pendingUpdate` is true. */
+  hotplugEnabled: boolean;
 }
 
 /** An FN node row (the `F|id|name|version|trigger|scope|status` record). */
