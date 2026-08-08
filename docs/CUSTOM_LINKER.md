@@ -61,10 +61,16 @@ failure in the custom path returns to `DlopenMem`, so a bug degrades to today's
 working behaviour instead of failing specialization. Both the default-off and
 flag-on builds compile and link for all four ABIs.
 
-**Stage 4 — make it the default, keep the fallback (pending on-device work).**
-Flip `USE_CUSTOM_LOADER` to `1` once it has been proven on a range of devices /
-Android versions (see verification below). `dropSoPath` stays as a
-belt-and-braces cleanup for the fallback path.
+**Stage 4 — custom loader is the default (done in code; on-device validation
+ongoing).**
+`USE_CUSTOM_LOADER` now defaults to `1`, so CSOLoader is the primary path for
+every module load, with the system-linker fallback kept for load-time failures.
+`dropSoPath` stays as belt-and-braces cleanup for whenever the fallback fires.
+Build with `-DUSE_CUSTOM_LOADER=0` to force the old system-linker path if a
+regression needs isolating. The on-device checklist below still governs whether
+this default is safe on a given device / Android version — the fallback does not
+cover a load that succeeds but yields a broken module (a zygote crash / boot
+loop), so real-hardware testing remains required.
 
 ## Risk & verification
 
