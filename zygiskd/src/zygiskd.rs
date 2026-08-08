@@ -377,12 +377,19 @@ fn load_modules() -> Result<Vec<Module>> {
 
     let mut modules = Vec::new();
     for (name, module_dir) in eligible_modules(arch) {
-        // A staged entry needs its lifecycle scripts run once — the boot-time
-        // swap never happened for it (see `activate_staged_module`).
+        // A staged entry needs activation: swap into the active directory and
+        // run its lifecycle scripts once (see `activate_staged_module`).
         if module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR) {
             activate_staged_module(&name, &module_dir);
         }
-        let so_path = module_dir.join(format!("zygisk/{arch}.so"));
+        // Activation may have moved the module into the active directory —
+        // resolve the .so from there when it exists.
+        let active_dir = Path::new(constants::PATH_MODULES_DIR).join(&name);
+        let so_path = if active_dir.join(format!("zygisk/{arch}.so")).exists() {
+            active_dir.join(format!("zygisk/{arch}.so"))
+        } else {
+            module_dir.join(format!("zygisk/{arch}.so"))
+        };
         info!("Loading module `{}`...", name);
         match create_library_fd(&so_path) {
             Ok(lib_fd) => modules.push(Module { name, lib_fd }),
@@ -434,23 +441,47 @@ fn run_module_script(module_dir: &Path, script: &Path) {
     }
 }
 
-/// Runs the lifecycle scripts of a hot-plugged staged module exactly once.
+/// Activates a hot-plugged staged module: swaps it into the active
+/// directory and runs its lifecycle scripts exactly once.
 ///
-/// A staged module never went through the root solution's boot-time swap, so
-/// the daemons it depends on (e.g. LSPosed's `lspd`, started by
-/// `service.sh`) are not running — injecting its Zygisk `.so` alone would
-/// look like "no effect". Mirror the boot stages:
+/// Module binaries must run from `/data/adb/modules/<id>` — the same
+/// location the root solution's boot-time swap uses. Running them from
+/// `modules_update/` is not equivalent: lspd (LSPosed) crashes
+/// deterministically with SIGSEGV (pc=sp=0x314, uninitialized stack) when
+/// started from the staged directory, because the file context differs.
+/// So the staged copy is moved into place first (mirroring what ksud/apd
+/// do at boot), then the scripts run from the real location:
 ///
-/// - `post-fs-data.sh` runs immediately (early stage), marked by
-///   `WORKDIR/hotplug_activated/<name>.post_fs_data`;
-/// - `service.sh` must wait for system_server (it crashes on an unprepared
-///   framework — lspd dies with SIGSEGV when started during early boot), so
-///   it only runs once `SYSTEM_SERVER_UP` is set — immediately when the
-///   hot-plug happens mid-session, or deferred to the SystemServerStarted
-///   handler when it happens during boot. Marked by
-///   `WORKDIR/hotplug_activated/<name>.service`.
+/// - `post-fs-data.sh` runs immediately (marker
+///   `WORKDIR/hotplug_activated/<name>.post_fs_data`);
+/// - `service.sh` waits for system_server (SYSTEM_SERVER_UP): immediate
+///   when hot-plugging mid-session, deferred to the SystemServerStarted
+///   handler during boot (marker `...service`).
+///
+/// After the swap the module is a normal active module: served from the
+/// active dir, and the root solution's next boot-time swap finds nothing
+/// left in modules_update/.
 fn activate_staged_module(name: &str, module_dir: &Path) {
-    let dir = module_dir.to_path_buf();
+    let active_dir = Path::new(constants::PATH_MODULES_DIR).join(name);
+    // Swap the staged copy into the active directory (preserving a possible
+    // disable flag from the active stub, like the boot-time swap inherits
+    // the disabled state).
+    if let Ok(md) = fs::metadata(&active_dir) {
+        if md.is_dir() {
+            let _ = fs::rename(active_dir.join("disable"), module_dir.join("disable"));
+            let _ = fs::remove_dir_all(&active_dir);
+        }
+    }
+    if let Err(e) = fs::rename(module_dir, &active_dir) {
+        warn!(
+            "Hot-plug: failed to swap staged module \"{}\" into {}: {}",
+            name, active_dir.display(), e
+        );
+        return;
+    }
+    info!("Hot-plug: swapped staged module \"{}\" into the active directory", name);
+
+    let dir = active_dir;
     let marker_post = Path::new(TMP_PATH.get().unwrap())
         .join("hotplug_activated")
         .join(format!("{name}.post_fs_data"));
@@ -484,7 +515,7 @@ fn activate_staged_module(name: &str, module_dir: &Path) {
             }
             let _ = fs::write(&marker_clone, b"1");
         });
-        info!("Hot-plug: scheduling service.sh for staged module `{}`", name);
+        info!("Hot-plug: scheduling service.sh for swapped module \"{}\"", name);
     }
 }
 
@@ -507,30 +538,42 @@ fn opted_in_staged_modules() -> Vec<(String, PathBuf)> {
     out
 }
 
-/// Runs the deferred `service.sh` of opted-in staged modules once system_server
+/// Runs the deferred `service.sh` of hot-plugged modules once system_server
 /// is up (late boot) — the same point Magisk/KernelSU run service.sh.
+/// After the swap the module lives in the active directory, so this walks
+/// the activation markers: names with a `.post_fs_data` marker but no
+/// `.service` marker yet, whose active dir carries a Zygisk `.so`.
 fn run_pending_staged_services() {
     SYSTEM_SERVER_UP.store(true, Ordering::Relaxed);
-    for (name, dir) in opted_in_staged_modules() {
-        let marker = Path::new(TMP_PATH.get().unwrap())
-            .join("hotplug_activated")
-            .join(format!("{name}.service"));
-        if marker.exists() {
+    let markers = Path::new(TMP_PATH.get().unwrap()).join("hotplug_activated");
+    let Ok(dir) = fs::read_dir(&markers) else {
+        return;
+    };
+    for entry in dir.flatten() {
+        let fname = entry.file_name().to_string_lossy().into_owned();
+        let Some(name) = fname.strip_suffix(".post_fs_data") else {
+            continue;
+        };
+        if markers.join(format!("{name}.service")).exists() {
             continue;
         }
-        let dir_clone = dir.clone();
-        let marker_clone = marker.clone();
+        let active_dir = Path::new(constants::PATH_MODULES_DIR).join(name);
+        let has_so = ["zygisk/arm64-v8a.so", "zygisk/armeabi-v7a.so"]
+            .iter()
+            .any(|p| active_dir.join(p).exists());
+        if !has_so {
+            continue;
+        }
+        let dir_clone = active_dir.clone();
+        let marker_clone = markers.join(format!("{name}.service"));
         std::thread::spawn(move || {
             let p = dir_clone.join("service.sh");
             if p.is_file() {
                 run_module_script(&dir_clone, &p);
             }
-            if let Some(parent) = marker_clone.parent() {
-                let _ = fs::create_dir_all(parent);
-            }
             let _ = fs::write(&marker_clone, b"1");
         });
-        info!("Hot-plug: scheduling deferred service.sh for staged module `{}`", name);
+        info!("Hot-plug: scheduling deferred service.sh for swapped module \"{}\"", name);
     }
 }
 
