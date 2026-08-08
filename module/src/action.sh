@@ -15,7 +15,7 @@ else
   grep -E '^[[:blank:]]*[a-zA-Z][a-zA-Z0-9_]*=' "$PROP" | sed -E 's/^[[:blank:]]+//'
   echo
   echo "Monitor:"
-  grep -Ev '^[[:blank:]]*[a-zA-Z][a-zA-Z0-9_]*=' "$PROP" | grep -v '^[[:blank:]]*$' | sed -E 's/^[[:blank:]]+//; s/:[[:blank:]]+/: /'
+  grep -Ev '^[[:blank:]]*[a-zA-Z][a-zA-Z0-9_]*=|^[[:blank:]]*=' "$PROP" | grep -v '^[[:blank:]]*$' | sed -E 's/^[[:blank:]]+//; s/:[[:blank:]]+/: /' | awk '{ print length($0), $0 }' | sort -n | cut -d' ' -f2-
 fi
 
 echo

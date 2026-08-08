@@ -38,6 +38,19 @@ describe("StatusSection", () => {
     wrapper.unmount();
   });
 
+  it("renders monitor rows from the shortest line to the longest", async () => {
+    const wrapper = mount(StatusSection);
+    await flushPromises();
+    // "Root: APatch" (12) sorts before "monitor: tracing" (16) and
+    // "zygote64: injected" (19).
+    const kids = wrapper.findAll(".monitor-list > div");
+    expect(kids[0].find(".monitor-detail").exists()).toBe(true);
+    expect(kids[0].text()).toBe("Root: APatch");
+    expect(kids[1].find(".m-label").text()).toBe("monitor");
+    expect(kids[2].find(".m-label").text()).toBe("zygote64");
+    wrapper.unmount();
+  });
+
   it("colors healthy monitor values with the ok class", async () => {
     const wrapper = mount(StatusSection);
     await flushPromises();

@@ -102,7 +102,7 @@ void AppMonitor::update_status() {
     std::string abi_section;
     write_abi_status_section(abi_section, zygote_.get_status());
 
-    ss << abi_section << "\n\n" << post_section_;
+    ss << abi_section << "\n\n";
 
     std::string final_output = ss.str();
     fwrite(final_output.c_str(), 1, final_output.length(), prop_file.get());
@@ -116,17 +116,13 @@ bool AppMonitor::prepare_environment() {
         PLOGE("open original prop");
         return false;
     }
-    bool post = false;
     file_readline(false, orig_prop.get(), [&](std::string_view line) -> bool {
         if (line.starts_with("updateJson=")) return true;
-        if (line.starts_with("description=")) {
-            post = true;
-            // Keep the "description=" key so the generated prop stays valid.
-            post_section_ += line.substr(sizeof("description") - 1);
-        } else {
-            (post ? post_section_ : pre_section_) += "\t";
-            (post ? post_section_ : pre_section_) += line;
-        }
+        // The description belongs in the installed module.prop only — this
+        // file is a live status file, so it is skipped here like updateJson.
+        if (line.starts_with("description=")) return true;
+        pre_section_ += "\t";
+        pre_section_ += line;
         return true;
     });
     update_status();
