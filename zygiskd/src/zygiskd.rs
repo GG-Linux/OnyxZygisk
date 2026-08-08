@@ -374,6 +374,11 @@ fn load_modules() -> Result<Vec<Module>> {
 
     let mut modules = Vec::new();
     for (name, module_dir) in eligible_modules(arch) {
+        // A staged entry needs its lifecycle scripts run once — the boot-time
+        // swap never happened for it (see `activate_staged_module`).
+        if module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR) {
+            activate_staged_module(&name, &module_dir);
+        }
         let so_path = module_dir.join(format!("zygisk/{arch}.so"));
         info!("Loading module `{}`...", name);
         match create_library_fd(&so_path) {
@@ -392,6 +397,72 @@ fn scan_fn_nodes_at_startup() {
         .filter(|n| matches!(n.status, r#fn::FnStatus::Enabled))
         .count();
     info!("FN nodes: {} enabled / {} total", enabled, nodes.len());
+}
+
+/// Runs one lifecycle script of a (staged) module against its own directory,
+/// mirroring how the root solution's boot-time swap runs module scripts.
+fn run_module_script(module_dir: &Path, script: &Path) {
+    let output = Command::new("sh")
+        .arg(script)
+        .current_dir(module_dir)
+        .env("MODDIR", module_dir)
+        .output();
+    match output {
+        Ok(output) => {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            if !stdout.is_empty() {
+                info!("Module script stdout:\n{}", stdout.trim_end());
+            }
+            if !stderr.is_empty() {
+                warn!("Module script stderr:\n{}", stderr.trim_end());
+            }
+            if !output.status.success() {
+                warn!(
+                    "Module script {} exited with {}",
+                    script.file_name().unwrap_or_default().to_string_lossy(),
+                    output.status
+                );
+            }
+        }
+        Err(e) => {
+            warn!("Failed to run module script {}: {}", script.display(), e);
+        }
+    }
+}
+
+/// Runs the lifecycle scripts of a hot-plugged staged module exactly once.
+///
+/// A staged module never went through the root solution's boot-time swap, so
+/// the daemons it depends on (e.g. LSPosed's `lspd`, started by
+/// `service.sh`) are not running — injecting its Zygisk `.so` alone would
+/// look like "no effect". Mirror the boot: run `post-fs-data.sh` then
+/// `service.sh` against the staged directory, in the background, once per
+/// opt-in. Completion is marked by `WORKDIR/hotplug_activated/<name>` so a
+/// daemon restart mid-activation retries instead of double-running.
+fn activate_staged_module(name: &str, module_dir: &Path) {
+    let marker = Path::new(TMP_PATH.get().unwrap())
+        .join("hotplug_activated")
+        .join(name);
+    if marker.exists() {
+        return;
+    }
+    let dir = module_dir.to_path_buf();
+    let marker_clone = marker.clone();
+    std::thread::spawn(move || {
+        for script in ["post-fs-data.sh", "service.sh"] {
+            let p = dir.join(script);
+            if !p.is_file() {
+                continue;
+            }
+            run_module_script(&dir, &p);
+        }
+        if let Some(parent) = marker_clone.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(&marker_clone, b"1");
+    });
+    info!("Hot-plug: scheduling activation scripts for staged module `{}`", name);
 }
 
 /// Creates a sealed, read-only memfd containing the module's shared library.
