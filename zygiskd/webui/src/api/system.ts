@@ -9,14 +9,17 @@ const STATUS_SCRIPT = [
   'MOD="' + MODDIR + '"; W="' + WORKDIR + '"',
   'v=$(sed -n "s/^version=//p" "$MOD/module.prop" 2>/dev/null | head -n1)',
   "r=none",
-  // Root detection order matters: later matches override earlier ones.
-  // FolkPatch (an APatch extended branch) ships its own daemon under
-  // /data/adb/fp while keeping the APatch-compatible `apd`, so it is checked
-  // after APatch and wins when both are present.
-  "[ -x /data/adb/ap/bin/apd ] && r=APatch",
-  "[ -x /data/adb/fp/bin/fpd ] && r=FolkPatch",
+  // Root provider detection: only a RUNNING daemon counts. Stale files from a
+  // previous setup (leftover `apd` on a KernelSU device) or a magisk-compatible
+  // binary in PATH on APatch/KernelSU devices must not win, so there are no
+  // file/PATH fallbacks. FolkPatch keeps APatch's `apd` next to its own `fpd`,
+  // so fpd wins when both daemons run.
+  "pidof apd >/dev/null 2>&1 && r=APatch",
+  "pidof fpd >/dev/null 2>&1 && r=FolkPatch",
   "[ -d /data/adb/ksu ] && r=KernelSU",
-  "command -v magisk >/dev/null 2>&1 && r=Magisk",
+  "pidof magiskd >/dev/null 2>&1 && r=Magisk",
+  // Print an empty label instead of "none" when nothing was detected.
+  '[ "$r" = none ] && r=',
   'echo "version=$v"; echo "root=$r"',
   'pidof zygote64 >/dev/null 2>&1 && echo "z64=1" || echo "z64=0"',
   '(pidof zygote >/dev/null 2>&1 || pidof zygote_secondary >/dev/null 2>&1) && echo "z32=1" || echo "z32=0"',
