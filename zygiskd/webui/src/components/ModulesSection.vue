@@ -11,7 +11,7 @@ import type { ModuleInfo } from "../types";
 const { t } = useLocale();
 // Shared 6s-polled state (provided by App.vue); local fallback for standalone mounts.
 const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
-const { loading, error, modules, load } = state;
+const { loading, error, modules, hotplug, load } = state;
 
 // Only Zygisk-capable modules are shown (the shell also filters them).
 const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
@@ -48,9 +48,13 @@ async function toggleHotplug(m: ModuleInfo, enabled: boolean) {
           <div class="mod-row__foot">
             <span class="mod-row__author">{{ m.author || t("modules.unknownAuthor") }}</span>
             <div v-if="m.pendingUpdate" class="mod-row__hotplug">
-              <span class="mod-row__hotplug-label">{{ t("modules.hotplug") }}</span>
+              <span class="mod-row__hotplug-label">
+                {{ t("modules.hotplug") }}
+                <span v-if="!hotplug" class="mod-row__hotplug-off">{{ t("modules.hotplugOff") }}</span>
+              </span>
               <Switch
                 :checked="m.hotplugEnabled"
+                :disabled="!hotplug"
                 @update:checked="toggleHotplug(m, $event)"
               />
             </div>
@@ -123,5 +127,11 @@ async function toggleHotplug(m: ModuleInfo, enabled: boolean) {
 .mod-row__hotplug-label {
   font-size: 11px;
   color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mod-row__hotplug-off {
+  color: var(--orange);
 }
 </style>

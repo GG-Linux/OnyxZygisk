@@ -256,31 +256,22 @@ fn get_arch() -> Result<&'static str> {
 }
 
 /// Whether a staged update for `name` sitting in `PATH_MODULES_UPDATE_DIR` is
-/// guaranteed complete and safe to read, per the active root solution's own
-/// "install/update finished" signal — the exact signal it uses internally
-/// before swapping the staged copy into the active module directory at the
-/// next boot (see `ksud`'s / `apd`'s own `handle_updated_modules`).
+/// complete and safe to read.
 ///
-/// KernelSU marks this per module: `modules/<id>/update` is the last file
-/// `ksud` writes when that module's install/update finishes, so its presence
-/// alone proves `modules_update/<id>/` is fully written.
+/// The root solutions' own "install/update finished" flags are not reliable
+/// across KernelSU / APatch / FolkPatch in practice: ksud only leaves a
+/// metadata stub in `modules/<id>/` (no `.so`) and apd's global
+/// `/data/adb/ap/update` flag is cleared at boot. So file completeness of the
+/// staged entry itself is the signal — `module.prop` plus at least one ABI's
+/// Zygisk `.so`, the exact payload this daemon needs to serve the module.
 ///
-/// APatch marks it with one global flag instead (`apd`'s `mark_update`, also
-/// written last): once it exists, every entry currently in
-/// `modules_update/` already finished its own (synchronous) install,
-/// regardless of which one triggered the flag.
-///
-/// Magisk has no equivalent per-module signal found, so this is always false
-/// there — a fresh or updated module still needs a reboot before this daemon
-/// can see it.
-fn staged_update_ready(root: root_impl::RootImpl, name: &str) -> bool {
-    match root {
-        root_impl::RootImpl::KernelSU => {
-            Path::new(constants::PATH_MODULES_DIR).join(name).join("update").exists()
-        }
-        root_impl::RootImpl::APatch => Path::new(constants::PATH_APATCH_UPDATE_FLAG).exists(),
-        _ => false,
-    }
+/// Magisk has no staging directory at all, so this is always false there — a
+/// fresh or updated module still needs a reboot before this daemon can see it.
+fn staged_update_ready(name: &str) -> bool {
+    let dir = Path::new(constants::PATH_MODULES_UPDATE_DIR).join(name);
+    dir.join("module.prop").exists()
+        && (dir.join("zygisk/arm64-v8a.so").exists()
+            || dir.join("zygisk/armeabi-v7a.so").exists())
 }
 
 /// Whether the user explicitly opted `name` into using its staged update
@@ -296,22 +287,34 @@ fn hotplug_opted_in(name: &str) -> bool {
     Path::new(TMP_PATH.get().unwrap()).join("hotplug").join(name).exists()
 }
 
+/// Master switch for the whole hot-plug feature (`WORKDIR/hotplug_off`
+/// present). When off, every per-module opt-in is ignored and staged updates
+/// only take effect through the root solution's own boot-time swap — i.e. a
+/// reboot. Absent by default, so hot-plug is on out of the box.
+fn hotplug_master_enabled() -> bool {
+    !Path::new(TMP_PATH.get().unwrap()).join("hotplug_off").exists()
+}
+
 /// Names and directories of every module eligible for Zygisk injection,
 /// sorted by name. Two sources are merged:
 ///
 /// - `PATH_MODULES_DIR`, the active directory — today's baseline;
-/// - for KernelSU and APatch, any module with a *complete* staged update in
-///   `PATH_MODULES_UPDATE_DIR` that the user has also explicitly opted into
-///   (see `staged_update_ready` and `hotplug_opted_in`). A staged entry wins
-///   over an active one with the same name (it is the newer version); its
-///   disabled state is inherited from the active entry, mirroring exactly
-///   what `ksud`'s / `apd`'s own boot-time swap does ("if the old module is
-///   disabled, the new one starts disabled too").
+/// - any module with a *complete* staged update in `PATH_MODULES_UPDATE_DIR`
+///   that the user has also explicitly opted into, while the hot-plug master
+///   switch is on (see `staged_update_ready`, `hotplug_master_enabled` and
+///   `hotplug_opted_in`). A staged entry wins over an active one with the
+///   same name (it is the newer version); its disabled state is inherited
+///   from the active entry, mirroring exactly what `ksud`'s / `apd`'s own
+///   boot-time swap does ("if the old module is disabled, the new one starts
+///   disabled too").
 ///
 /// This is what lets a freshly installed or updated module become
 /// injectable on the very next process fork, instead of waiting for the
 /// boot-time swap the root solution itself performs — once the user
 /// confirms it, via the WebUI's per-module switch.
+///
+/// Hot-plug is inherently Zygisk-only: both sources only accept entries that
+/// carry `zygisk/<arch>.so` for the running ABI.
 ///
 /// Sorting keeps the order deterministic across the several independent
 /// re-scans a single process specialize can trigger (`ReadModules`, then
@@ -335,11 +338,11 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
         warn!("Failed to read modules directory: {}", constants::PATH_MODULES_DIR);
     }
 
-    let root = root_impl::get();
     if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_UPDATE_DIR) {
         for entry in dir.flatten() {
             let name = entry.file_name().into_string().unwrap_or_default();
-            if !staged_update_ready(*root, &name) || !hotplug_opted_in(&name) {
+            if !hotplug_master_enabled() || !staged_update_ready(&name) || !hotplug_opted_in(&name)
+            {
                 continue;
             }
             let module_dir = entry.path();
