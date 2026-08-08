@@ -403,11 +403,23 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
 /// (`WORKDIR/hotplug/<name>`) is a plain file that survives a reboot, so on
 /// every boot where a module was left opted-in from a previous session, an
 /// unconditional call here would activate it as a side effect of what is
-/// only meant to be a passive startup log snapshot — including the
-/// filesystem rename and spawning a shell to run its scripts, at the exact
-/// moment zygote is attempting its very first, most fragile system_server
-/// fork. `main()` passes `false` for that snapshot; the real per-request
-/// path (`handle_read_modules`) passes `true`.
+/// only meant to be a passive startup log snapshot. `main()` passes `false`
+/// for that snapshot; the real per-request path (`handle_read_modules`)
+/// passes `true`.
+///
+/// `activate: true` alone is *not* enough to actually perform the swap,
+/// though: `system_server` goes through this exact same `ReadModules` call
+/// as part of its own specialize (`nativeForkSystemServer_pre` ->
+/// `run_modules_pre`), which on a fresh boot is close to the first
+/// `activate: true` call of the whole boot — so gating only the *caller*
+/// does not move the swap out of that fragile window, only which code path
+/// happens to trigger it. The actual mutation — directory rename and
+/// spawning a shell to run scripts — additionally requires
+/// `system_server_ready()`. Before that, a module is still injected straight
+/// from its staged `.so` (loading via memfd does not care where the source
+/// file lives, unlike running a script/binary as a subprocess, which is
+/// exactly the file-context problem `activate_staged_module` exists to
+/// avoid) — only the disruptive part waits.
 fn load_modules(activate: bool) -> Result<Vec<Module>> {
     let arch = get_arch()?;
     debug!("Daemon architecture: {arch}");
@@ -424,11 +436,18 @@ fn load_modules(activate: bool) -> Result<Vec<Module>> {
     for (name, module_dir) in eligible_modules(arch) {
         // A staged entry needs activation: swap into the active directory and
         // run its lifecycle scripts once (see `activate_staged_module`).
-        if activate && module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR) {
+        // Deferred until system_server_ready(): see this function's doc
+        // comment for why `activate` alone does not avoid the fragile window.
+        if activate
+            && system_server_ready()
+            && module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR)
+        {
             activate_staged_module(&name, &module_dir);
         }
         // Activation may have moved the module into the active directory —
-        // resolve the .so from there when it exists.
+        // resolve the .so from there when it exists, else load it straight
+        // from the staged copy (module_dir) so injection works even before
+        // system_server_ready() allows the real swap.
         let active_dir = Path::new(constants::PATH_MODULES_DIR).join(&name);
         let so_path = if active_dir.join(format!("zygisk/{arch}.so")).exists() {
             active_dir.join(format!("zygisk/{arch}.so"))
