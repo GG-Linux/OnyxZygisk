@@ -61,4 +61,4 @@ OnyxZygisk 站在它所构建于、所受启发的项目的肩膀上:
 
 ## 许可证
 
-[GPL-3.0](LICENSE)。OnyxZygisk 是 NeoZygisk 的下游,沿用相同的许可证与声明。
+[AGPL-3.0](LICENSE)。OnyxZygisk 是 NeoZygisk 的下游,沿用相同的许可证与声明。
