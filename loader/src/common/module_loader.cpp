@@ -20,17 +20,18 @@ extern "C" {
  *  - the in-process custom loader (CSOLoader), which maps and links the module
  *    itself, so it never enters solist at all.
  *
- * The custom path is tried first only when USE_CUSTOM_LOADER is enabled, and it
- * falls back to the system linker on any failure. That fallback is what makes
- * it safe to iterate on: a bug in the custom loader degrades to today's working
- * behaviour instead of failing to specialize the process (which would boot
- * loop). It is OFF by default until proven on-device — see docs/CUSTOM_LINKER.md.
+ * The custom path is the primary one: it is tried first and falls back to the
+ * system linker if csoloader_load fails or the entry symbol is missing. The
+ * fallback catches load-time failures — but note it cannot catch a load that
+ * succeeds yet yields a subtly broken module, which would surface as a zygote
+ * crash. See docs/CUSTOM_LINKER.md for the on-device verification this needs.
  */
 
-// Flip to 1 (or pass -DUSE_CUSTOM_LOADER=1) to make the custom loader the
-// primary path. Keep the fallback regardless.
+// Custom loader is the default primary path. Set -DUSE_CUSTOM_LOADER=0 to force
+// the system linker (e.g. to isolate a regression). The fallback is kept
+// regardless.
 #ifndef USE_CUSTOM_LOADER
-#define USE_CUSTOM_LOADER 0
+#define USE_CUSTOM_LOADER 1
 #endif
 
 static constexpr const char *ENTRY_SYMBOL = "zygisk_module_entry";
