@@ -13,3 +13,4 @@ zygiskd/webui/dist/
 # Agent / tooling scratch
 .zcode/
 gradle/gradle-daemon-jvm.properties
+.claude/

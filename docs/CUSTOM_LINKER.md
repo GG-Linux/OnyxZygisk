@@ -13,29 +13,22 @@ Today OnyxZygisk is **reactive**: the system linker loads the module via
 loader is **proactive**: the module is mapped, relocated and initialised by our
 own code and never enters `solist` in the first place.
 
-This is the same technique ReZygisk markets under "custom linker (CSOLoader)".
-The *idea* is shared; the *code* here is not — see Licensing.
+The loader itself is **CSOLoader** (github.com/ThePedroo/CSOLoader), the same
+component ReZygisk uses, vendored as a git submodule under
+`loader/src/external/csoloader/`.
 
-## Licensing (hard constraint)
+## Licensing
 
-- OnyxZygisk is **GPL-3.0** (inherited from NeoZygisk, upstream GPL-3.0).
-- ReZygisk's `CSOLoader` (github.com/ThePedroo/CSOLoader) is **AGPL-3.0**.
+- NeoZygisk (the base) is **GPL-3.0**.
+- CSOLoader is **AGPL-3.0**.
 
-AGPL-3.0 source must not be copied or adapted into this project: doing so would
-force AGPL obligations onto the whole work (GPLv3 §13 permits the combination,
-but that is a deliberate relicensing the project has chosen **not** to make).
-"Read it and write a similar one" is not a loophole — access plus substantial
-similarity makes a derivative work regardless of rewording.
-
-Therefore the loader here is written **only** from:
-
-- the public **ELF** and **AArch64 / ARM ELF ABI** specifications;
-- Android's **bionic** linker, which is **Apache-2.0** (GPL-compatible), used as
-  a reference for Android-specific behaviour;
-- this repository's own GPL-3.0 code (`injector/solist.cpp`,
-  `include/elf_parser.hpp`, `include/linker_soinfo.h`).
-
-No CSOLoader / ReZygisk source is consulted while implementing it.
+The project decision is to incorporate CSOLoader directly rather than
+reimplement it. GPL-3.0 §13 permits linking a GPL-3.0 work with an AGPL-3.0
+work; the combined work is therefore conveyed under **AGPL-3.0** (`LICENSE`),
+with upstream GPL-3.0 notices retained (`NOTICE.md`). CSOLoader is kept as an
+unmodified submodule so its copyright headers and AGPL license stay intact; our
+own code only calls its public API (`csoloader_load`, `csoloader_get_symbol`,
+`csoloader_unload`).
 
 ## The seam
 
@@ -53,31 +46,25 @@ This decouples the call sites from *how* the library was loaded.
 ## Stages
 
 **Stage 1 — the seam (done).**
-`LoadModuleFromMemfd` wraps the previous `DlopenMem` + `dlsym` exactly;
-`custom` is always `false`. No behavioural change. Both call sites converted.
-Purpose: a single, testable place to add the custom path with a guaranteed
-fallback.
+`LoadModuleFromMemfd` funnels both module load sites through one function.
 
-**Stage 2 — read-only ELF loader, dry run.**
-Parse the module image from the memfd (program headers, dynamic section,
-relocation and symbol tables) and log what a load *would* do — segment layout,
-`DT_NEEDED` list, relocation counts — but still hand the process off to
-`DlopenMem`. Lets us validate the parser against real modules on-device with
-zero risk to boot.
+**Stage 2 — vendor CSOLoader + wire the build (done).**
+CSOLoader added as a submodule; its static `csoloader` target is built by the
+NDK and linked into `zygisk`. Combined work relicensed to AGPL-3.0.
 
-**Stage 3 — map + relocate + init, behind a flag.**
-Actually `mmap` the `PT_LOAD` segments, apply relocations
-(`R_AARCH64_RELATIVE`, `R_AARCH64_GLOB_DAT`, `R_AARCH64_JUMP_SLOT`,
-`R_AARCH64_ABS64`; ARM equivalents for 32-bit), resolve imports against
-already-loaded libraries via the in-process linker's own lookup, run
-`DT_INIT` / `DT_INIT_ARRAY`, and return a handle whose `dlsym` equivalent finds
-`zygisk_module_entry`. Gated by a compile-time flag (default off) **and** an
-automatic fallback: any failure in the custom path returns to `DlopenMem`, so a
-bug degrades to today's working behaviour instead of failing specialization.
+**Stage 3 — in-process glue behind a flag (done, default off).**
+`LoadModuleFromMemfd` can load a module via `csoloader_load` on the memfd's
+procfs path (`/proc/self/fd/<n>`), resolve `zygisk_module_entry` with
+`csoloader_get_symbol`, and returns a `custom` handle. Gated by the
+`USE_CUSTOM_LOADER` compile flag (default `0`) with an automatic fallback: any
+failure in the custom path returns to `DlopenMem`, so a bug degrades to today's
+working behaviour instead of failing specialization. Both the default-off and
+flag-on builds compile and link for all four ABIs.
 
-**Stage 4 — make it the default, keep the fallback.**
-Flip the default once it has been proven on a range of devices / Android
-versions. `dropSoPath` stays as a belt-and-braces cleanup for the fallback path.
+**Stage 4 — make it the default, keep the fallback (pending on-device work).**
+Flip `USE_CUSTOM_LOADER` to `1` once it has been proven on a range of devices /
+Android versions (see verification below). `dropSoPath` stays as a
+belt-and-braces cleanup for the fallback path.
 
 ## Risk & verification
 

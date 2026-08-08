@@ -8,7 +8,7 @@ A **ptrace-based Zygisk implementation** for **APatch** & **KernelSU** — with 
 
 **English** · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md) · [日本語](README.ja.md)
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 
 </div>
 
@@ -61,4 +61,4 @@ OnyxZygisk stands on the shoulders of the projects it is built from and inspired
 
 ## License
 
-[GPL-3.0](LICENSE). OnyxZygisk is a downstream of NeoZygisk and keeps the same license and notices.
+[AGPL-3.0](LICENSE). OnyxZygisk is a downstream of NeoZygisk (GPL-3.0) and integrates CSOLoader (AGPL-3.0) as its in-process custom module loader; per GPL-3.0 §13 the combined work is conveyed under AGPL-3.0. Upstream GPL-3.0 notices are retained — see [NOTICE.md](NOTICE.md).
