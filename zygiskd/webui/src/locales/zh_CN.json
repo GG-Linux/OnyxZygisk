@@ -35,7 +35,8 @@
     "empty": "没有已安装的 Zygisk 模块",
     "unknownAuthor": "未知作者",
     "pendingUpdate": "有更新待生效",
-    "hotplug": "立即生效"
+    "hotplug": "立即生效",
+    "hotplugOff": "已停用"
   },
   "fn": {
     "hint": "FN 节点位于 /data/adb/onyxzygisk/fn",
@@ -64,6 +65,8 @@
     "language": "语言",
     "languageAuto": "自动",
     "about": "关于",
-    "aboutText": "OnyxZygisk —— 基于 ptrace 的 Zygisk 实现，支持 FN（Functional Node）模块。fork 自 NeoZygisk。"
+    "aboutText": "OnyxZygisk —— 基于 ptrace 的 Zygisk 实现，支持 FN（Functional Node）模块。fork 自 NeoZygisk。",
+    "hotplug": "热插拔（Zygisk Host）",
+    "hotplugHint": "关闭后模块需重启才生效"
   }
 }

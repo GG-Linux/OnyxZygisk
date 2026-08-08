@@ -35,7 +35,8 @@
     "empty": "インストール済みの Zygisk モジュールがありません",
     "unknownAuthor": "不明",
     "pendingUpdate": "更新が保留中です",
-    "hotplug": "今すぐ適用"
+    "hotplug": "今すぐ適用",
+    "hotplugOff": "無効"
   },
   "fn": {
     "hint": "FN ノードは /data/adb/onyxzygisk/fn にあります",
@@ -64,6 +65,8 @@
     "language": "言語",
     "languageAuto": "自動",
     "about": "このモジュールについて",
-    "aboutText": "OnyxZygisk — ptrace ベースの Zygisk 実装で、FN（Functional Node）モジュールに対応しています。NeoZygisk のフォークです。"
+    "aboutText": "OnyxZygisk — ptrace ベースの Zygisk 実装で、FN（Functional Node）モジュールに対応しています。NeoZygisk のフォークです。",
+    "hotplug": "ホットプラグ（Zygisk Host）",
+    "hotplugHint": "オフの間は再起動後にのみ有効"
   }
 }

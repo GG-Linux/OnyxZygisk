@@ -35,7 +35,8 @@
     "empty": "No Zygisk modules installed",
     "unknownAuthor": "unknown",
     "pendingUpdate": "Update staged, not yet applied",
-    "hotplug": "Apply now"
+    "hotplug": "Apply now",
+    "hotplugOff": "master off"
   },
   "fn": {
     "hint": "FN nodes in /data/adb/onyxzygisk/fn",
@@ -64,6 +65,8 @@
     "language": "Language",
     "languageAuto": "Auto",
     "about": "About",
-    "aboutText": "OnyxZygisk — a Zygisk implementation via ptrace, with FN (Functional Node) modules. Fork of NeoZygisk."
+    "aboutText": "OnyxZygisk — a Zygisk implementation via ptrace, with FN (Functional Node) modules. Fork of NeoZygisk.",
+    "hotplug": "Hot-plug (Zygisk Host)",
+    "hotplugHint": "When off, modules take effect only after a reboot"
   }
 }

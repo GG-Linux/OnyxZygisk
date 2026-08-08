@@ -552,6 +552,10 @@ select:focus {
 .switch input:checked + .slider::before {
   transform: translateX(18px);
 }
+.switch--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
 
 /* ── misc ── */
 .empty {

@@ -28,36 +28,53 @@ const STATUS_SCRIPT = [
   // stopped. Match all three names.
   'echo "daemon=$(pidof zygiskd zygiskd64 zygiskd32 >/dev/null 2>&1 && echo 1 || echo 0)"',
   'echo "workdir=$W"',
+  // Hot-plug master switch: off (WORKDIR/hotplug_off present) means staged
+  // updates only apply at the root solution's own boot-time swap.
+  'echo "hotplug=$([ -f "$W/hotplug_off" ] && echo 0 || echo 1)"',
   'echo "@@monitor"',
   'cat "$W/module.prop" 2>/dev/null | head -c 600; echo',
   'echo "@@modules"',
-  "for d in /data/adb/modules/*/; do",
-  '  [ -d "$d" ] || continue; p="$d/module.prop"; [ -f "$p" ] || continue',
-  '  id=$(sed -n "s/^id=//p" "$p" | head -n1)',
-  '  nm=$(sed -n "s/^name=//p" "$p" | head -n1)',
-  '  ver=$(sed -n "s/^version=//p" "$p" | head -n1)',
-  '  au=$(sed -n "s/^author=//p" "$p" | head -n1)',
-  '  ds=$(sed -n "s/^description=//p" "$p" | head -n1)',
-  '  zy=0; [ -f "$d/zygisk/arm64-v8a.so" ] || [ -f "$d/zygisk/armeabi-v7a.so" ] && zy=1',
-  '  dis=0; [ -f "$d/disable" ] && dis=1',
+  // Collect module ids from BOTH the active directory and the staging
+  // directory, deduplicated. A genuinely new install lives only in
+  // modules_update/ until the next reboot: KernelSU leaves a metadata-only
+  // stub in modules/<id>/ with no .so, APatch leaves modules/<id>/ empty — so
+  // iterating the active directory alone hides new installs entirely, and
+  // then their hotplug switch can never appear. `id` is the directory
+  // basename, matching how the daemon keys modules (and names the hotplug
+  // flag; see zygiskd::eligible_modules / hotplug_opted_in).
+  '  mids=""',
+  "  for d in /data/adb/modules/*/ /data/adb/modules_update/*/; do",
+  '    [ -d "$d" ] || continue',
+  '    bn=${d%/}; bn=${bn##*/}',
+  '    case " $mids " in *" $bn "*) ;; *) mids="$mids $bn" ;; esac',
+  "  done",
+  "  for id in $mids; do",
+  '    ad="/data/adb/modules/$id"; ud="/data/adb/modules_update/$id"',
+  // Is a *complete* staged update present for this id? Same signal the daemon
+  // uses (zygiskd::staged_update_ready): module.prop plus at least one ABI's
+  // Zygisk .so. The root solutions' own "update" flags are not reliable in
+  // practice (ksud leaves only a metadata stub in modules/<id>, apd's global
+  // flag is cleared at boot), so file completeness is the signal.
+  '    pend=0',
+  '    [ -f "$ud/module.prop" ] && { [ -f "$ud/zygisk/arm64-v8a.so" ] || [ -f "$ud/zygisk/armeabi-v7a.so" ]; } && pend=1',
+  // Read metadata + the .so from the staged copy when a staged update is
+  // present (it is the version that will run once applied), else the active
+  // copy. `dis` always comes from the active dir — the disable flag lives
+  // there and the daemon inherits it across the swap.
+  '    msrc="$ad"; [ "$pend" = 1 ] && [ -f "$ud/module.prop" ] && msrc="$ud"',
+  '    zsrc="$ad"; [ "$pend" = 1 ] && { [ -f "$ud/zygisk/arm64-v8a.so" ] || [ -f "$ud/zygisk/armeabi-v7a.so" ]; } && zsrc="$ud"',
+  '    p="$msrc/module.prop"; [ -f "$p" ] || continue',
+  '    zy=0; { [ -f "$zsrc/zygisk/arm64-v8a.so" ] || [ -f "$zsrc/zygisk/armeabi-v7a.so" ]; } && zy=1',
   // Only Zygisk-capable modules are shown in the WebUI.
-  '  [ "$zy" = 0 ] && continue',
-  // A newer version staged by the root manager (KernelSU/APatch), confirmed
-  // fully written by that root solution's own "install finished" signal —
-  // same check the daemon itself uses, see zygiskd::staged_update_ready.
-  // FolkPatch reuses APatch's apd and its staging convention.
-  '  pend=0',
-  '  if [ "$r" = "KernelSU" ]; then',
-  '    [ -f "/data/adb/modules/$id/update" ] && pend=1',
-  '  elif [ "$r" = "APatch" ] || [ "$r" = "FolkPatch" ]; then',
-  '    if [ -f "/data/adb/ap/update" ]; then',
-  '      [ -f "/data/adb/modules_update/$id/zygisk/arm64-v8a.so" ] && pend=1',
-  '      [ -f "/data/adb/modules_update/$id/zygisk/armeabi-v7a.so" ] && pend=1',
-  '    fi',
-  '  fi',
-  '  hp=0; [ -f "$W/hotplug/$id" ] && hp=1',
-  '  echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds|$pend|$hp"',
-  "done",
+  '    [ "$zy" = 0 ] && continue',
+  '    nm=$(sed -n "s/^name=//p" "$p" | head -n1)',
+  '    ver=$(sed -n "s/^version=//p" "$p" | head -n1)',
+  '    au=$(sed -n "s/^author=//p" "$p" | head -n1)',
+  '    ds=$(sed -n "s/^description=//p" "$p" | head -n1)',
+  '    dis=0; [ -f "$ad/disable" ] && dis=1',
+  '    hp=0; [ -f "$W/hotplug/$id" ] && hp=1',
+  '    echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds|$pend|$hp"',
+  "  done",
   'echo "@@fn"',
   'for d in "$W"/fn/*/; do',
   '  [ -d "$d" ] || continue; p="$d/fn.prop"; [ -f "$p" ] || continue',
@@ -162,13 +179,21 @@ export async function setFnEnabled(id: string, enabled: boolean): Promise<void> 
 }
 
 /** Opt a module with a detected pending update into using it immediately —
- * the daemon only overlays a staged update when both this flag and the root
- * solution's own "install finished" signal are present. See
- * zygiskd::eligible_modules. */
+ * the daemon only overlays a staged update when both this flag and the
+ * hot-plug master switch are on. See zygiskd::eligible_modules. */
 export async function setModuleHotplug(id: string, enabled: boolean): Promise<void> {
   const dir = `${WORKDIR}/hotplug`;
   const flag = `${dir}/${id}`;
   await exec(enabled ? `mkdir -p '${dir}' && touch '${flag}'` : `rm -f '${flag}'`);
+}
+
+/** Master switch for the hot-plug feature. When off, per-module opt-ins are
+ * ignored and staged updates only apply at the root solution's boot-time
+ * swap (a reboot). Flag file: WORKDIR/hotplug_off, absent = enabled.
+ * See zygiskd::hotplug_master_enabled. */
+export async function setHotplugMaster(enabled: boolean): Promise<void> {
+  const flag = `${WORKDIR}/hotplug_off`;
+  await exec(enabled ? `rm -f '${flag}'` : `touch '${flag}'`);
 }
 
 /** Normalize version display: strip a leading v/V then add one. */
