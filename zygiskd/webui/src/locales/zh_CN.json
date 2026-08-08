@@ -36,7 +36,8 @@
     "unknownAuthor": "未知作者",
     "pendingUpdate": "有更新待生效",
     "hotplug": "立即生效",
-    "hotplugOff": "已停用"
+    "hotplugOff": "已停用",
+    "hotplugRestarting": "已启用，正在重启 Zygote…"
   },
   "fn": {
     "hint": "FN 节点位于 /data/adb/onyxzygisk/fn",

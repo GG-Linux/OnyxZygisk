@@ -36,7 +36,8 @@
     "unknownAuthor": "unknown",
     "pendingUpdate": "Update staged, not yet applied",
     "hotplug": "Apply now",
-    "hotplugOff": "master off"
+    "hotplugOff": "master off",
+    "hotplugRestarting": "Enabled, restarting zygote…"
   },
   "fn": {
     "hint": "FN nodes in /data/adb/onyxzygisk/fn",

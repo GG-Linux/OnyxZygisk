@@ -36,7 +36,8 @@
     "unknownAuthor": "不明",
     "pendingUpdate": "更新が保留中です",
     "hotplug": "今すぐ適用",
-    "hotplugOff": "無効"
+    "hotplugOff": "無効",
+    "hotplugRestarting": "有効化しました、Zygote を再起動中…"
   },
   "fn": {
     "hint": "FN ノードは /data/adb/onyxzygisk/fn にあります",
