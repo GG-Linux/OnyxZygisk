@@ -62,9 +62,8 @@ struct AppContext {
 // Global paths, initialized once at startup.
 static TMP_PATH: OnceLock<String> = OnceLock::new();
 
-/// Set once system_server has started (late boot). `service.sh`-stage
-/// daemons (lspd etc.) must not run before this — they crash on an
-/// unprepared framework (lspd dies with SIGSEGV during early boot).
+/// Sticky cache for `system_server_ready()`: sets once the property check
+/// first observes boot complete, so later calls skip the property read.
 static SYSTEM_SERVER_UP: AtomicBool = AtomicBool::new(false);
 static CONTROLLER_SOCKET: OnceLock<String> = OnceLock::new();
 static DAEMON_SOCKET_PATH: OnceLock<String> = OnceLock::new();
@@ -399,6 +398,12 @@ fn load_modules() -> Result<Vec<Module>> {
     let arch = get_arch()?;
     debug!("Daemon architecture: {arch}");
 
+    // Opportunistic catch-up: schedules any hot-plugged module's service.sh
+    // that missed the live SystemServerStarted event for this daemon
+    // instance (see `system_server_ready`). Cheap no-op once nothing is
+    // pending.
+    run_pending_staged_services();
+
     let mut modules = Vec::new();
     for (name, module_dir) in eligible_modules(arch) {
         // A staged entry needs activation: swap into the active directory and
@@ -465,6 +470,35 @@ fn run_module_script(module_dir: &Path, script: &Path) {
     }
 }
 
+/// Whether system_server is up enough for `service.sh`-stage daemons (lspd
+/// etc.) to start safely — they crash on an unprepared framework.
+///
+/// Trusting only the one-shot `SystemServerStarted` socket message (sent by
+/// the loader exactly once, when zygote forks system_server) is not enough:
+/// if *this* daemon process started after that already happened in the
+/// current zygote lifetime, the message has already fired and will not fire
+/// again this boot, so a purely event-driven flag would stay false forever.
+/// That is the common case here — flashing a new OnyxZygisk build does not
+/// restart the already-running daemon, only a device reboot does, and this
+/// feature's whole point is working without one.
+///
+/// `sys.boot_completed` is a standard Android property, independent of any
+/// root solution, queryable at any time — checking it directly is
+/// self-healing regardless of when the daemon happened to start. Sticky
+/// once observed true: further calls skip the property read.
+fn system_server_ready() -> bool {
+    if SYSTEM_SERVER_UP.load(Ordering::Relaxed) {
+        return true;
+    }
+    let ready = utils::get_property("sys.boot_completed")
+        .map(|v| v.trim() == "1")
+        .unwrap_or(false);
+    if ready {
+        SYSTEM_SERVER_UP.store(true, Ordering::Relaxed);
+    }
+    ready
+}
+
 /// Activates a hot-plugged staged module: swaps it into the active
 /// directory and runs its lifecycle scripts exactly once.
 ///
@@ -478,9 +512,10 @@ fn run_module_script(module_dir: &Path, script: &Path) {
 ///
 /// - `post-fs-data.sh` runs immediately (marker
 ///   `WORKDIR/hotplug_activated/<name>.post_fs_data`);
-/// - `service.sh` waits for system_server (SYSTEM_SERVER_UP): immediate
-///   when hot-plugging mid-session, deferred to the SystemServerStarted
-///   handler during boot (marker `...service`).
+/// - `service.sh` waits for system_server (see `system_server_ready`):
+///   immediate when hot-plugging mid-session on an already-booted device,
+///   otherwise caught on the next `load_modules()` call or the
+///   `SystemServerStarted` event, whichever comes first (marker `...service`).
 ///
 /// After the swap the module is a normal active module: served from the
 /// active dir, and the root solution's next boot-time swap finds nothing
@@ -526,7 +561,7 @@ fn activate_staged_module(name: &str, module_dir: &Path) {
     let marker_svc = Path::new(TMP_PATH.get().unwrap())
         .join("hotplug_activated")
         .join(format!("{name}.service"));
-    if !marker_svc.exists() && SYSTEM_SERVER_UP.load(Ordering::Relaxed) {
+    if !marker_svc.exists() && system_server_ready() {
         let dir_clone = dir.clone();
         let marker_clone = marker_svc.clone();
         std::thread::spawn(move || {
@@ -563,12 +598,22 @@ fn opted_in_staged_modules() -> Vec<(String, PathBuf)> {
 }
 
 /// Runs the deferred `service.sh` of hot-plugged modules once system_server
-/// is up (late boot) — the same point Magisk/KernelSU run service.sh.
-/// After the swap the module lives in the active directory, so this walks
-/// the activation markers: names with a `.post_fs_data` marker but no
-/// `.service` marker yet, whose active dir carries a Zygisk `.so`.
+/// is ready (see `system_server_ready`) — the same point Magisk/KernelSU run
+/// service.sh. After the swap the module lives in the active directory, so
+/// this walks the activation markers: names with a `.post_fs_data` marker
+/// but no `.service` marker yet, whose active dir carries a Zygisk `.so`.
+///
+/// Called both from the live `SystemServerStarted` event and opportunistically
+/// from every `load_modules()` call, so a module activated on a daemon
+/// instance that never received that event (started after system_server was
+/// already up) still gets its service.sh scheduled on the very next app
+/// launch instead of never. Cheap to call liberally: a directory scan plus
+/// marker checks, and each module is scheduled for real work at most once
+/// (guarded by the marker file itself).
 fn run_pending_staged_services() {
-    SYSTEM_SERVER_UP.store(true, Ordering::Relaxed);
+    if !system_server_ready() {
+        return;
+    }
     let markers = Path::new(TMP_PATH.get().unwrap()).join("hotplug_activated");
     let Ok(dir) = fs::read_dir(&markers) else {
         return;
