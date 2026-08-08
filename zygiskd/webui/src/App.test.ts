@@ -1,5 +1,6 @@
 import { flushPromises, mount } from "@vue/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 import App from "./App.vue";
 import type { StateData } from "./types";
 
@@ -22,7 +23,6 @@ const state = (over: Partial<StateData> = {}): StateData => ({
 });
 
 const stubs = {
-  StatusSection: true,
   ModulesSection: true,
   FnSection: true,
   LogsSection: true,
@@ -85,6 +85,30 @@ describe("App hero", () => {
 
     await scrollTo(0);
     expect(wrapper.find(".hero--compact").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("re-measures the spacer once the fetched data has widened the hero", async () => {
+    // The first measurement runs before the fetch resolves, so it misses the
+    // root/version chips. jsdom reports offsetHeight as 0, so hand out a
+    // growing value instead: a second, larger reading is the observable proof
+    // that the hero was measured again after the data landed.
+    let n = 0;
+    const spy = vi
+      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockImplementation(() => (n += 100));
+
+    const wrapper = mount(App, { global: { stubs } });
+    await nextTick();
+    const onMount = wrapper.find(".hero-spacer").attributes("style");
+    await flushPromises();
+    await nextTick();
+    const afterData = wrapper.find(".hero-spacer").attributes("style");
+
+    expect(onMount).not.toBe("height: 0px;");
+    expect(afterData).not.toBe(onMount);
+
+    spy.mockRestore();
     wrapper.unmount();
   });
 
