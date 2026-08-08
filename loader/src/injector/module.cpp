@@ -16,6 +16,7 @@
 #include "files.hpp"
 #include "logging.hpp"
 #include "misc.hpp"
+#include "module_loader.hpp"
 #include "zygisk.hpp"
 
 using namespace std;
@@ -333,9 +334,8 @@ void ZygiskContext::run_modules_pre() {
     auto size = ms.size();
     for (size_t i = 0; i < size; i++) {
         auto &m = ms[i];
-        if (void *handle = DlopenMem(m.memfd, RTLD_NOW);
-            void *entry = handle ? dlsym(handle, "zygisk_module_entry") : nullptr) {
-            modules.emplace_back(i, handle, entry);
+        if (LoadedModule lm = LoadModuleFromMemfd(m.memfd)) {
+            modules.emplace_back(i, lm.handle, lm.entry);
         }
     }
 
@@ -351,11 +351,10 @@ void ZygiskContext::run_modules_pre() {
         auto &fn = fns[i];
         if (!fn_applies(fn, is_server)) continue;
         if (!is_server && !fn_scope_matches(fn, process)) continue;
-        if (void *handle = DlopenMem(fn.memfd, RTLD_NOW);
-            void *entry = handle ? dlsym(handle, "zygisk_module_entry") : nullptr) {
+        if (LoadedModule lm = LoadModuleFromMemfd(fn.memfd)) {
             LOGI("loading FN module `%s` into %s (priority %u)", fn.id.c_str(),
                  is_server ? "system_server" : process ? process : "unknown", fn.priority);
-            modules.emplace_back(size + i, handle, entry);
+            modules.emplace_back(size + i, lm.handle, lm.entry);
         }
     }
 
