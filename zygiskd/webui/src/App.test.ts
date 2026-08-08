@@ -53,6 +53,8 @@ describe("App hero", () => {
     // jsdom does not implement a settable scrollY: stub the getter.
     Object.defineProperty(window, "scrollY", { value: 100, configurable: true });
     window.dispatchEvent(new Event("scroll"));
+    // The scroll handler is rAF-throttled: wait one animation frame.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await Promise.resolve();
 
     expect(wrapper.find(".hero--compact").exists()).toBe(true);

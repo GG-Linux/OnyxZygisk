@@ -40,11 +40,25 @@ const overall = computed(() => {
 });
 
 const compact = ref(false);
+// Coalesce scroll events into a single class update per animation frame.
+// The toggle itself is cheap; this keeps it from flipping mid-frame while
+// the user is scrolling.
+let rafId = 0;
 function onScroll(): void {
-  compact.value = window.scrollY > 16;
+  if (rafId) return;
+  rafId = requestAnimationFrame(() => {
+    rafId = 0;
+    compact.value = window.scrollY > 16;
+  });
 }
-onMounted(() => window.addEventListener("scroll", onScroll, { passive: true }));
-onUnmounted(() => window.removeEventListener("scroll", onScroll));
+onMounted(() => {
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+});
+onUnmounted(() => {
+  window.removeEventListener("scroll", onScroll);
+  if (rafId) cancelAnimationFrame(rafId);
+});
 </script>
 
 <template>
@@ -95,11 +109,9 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   border-radius: var(--radius);
   box-shadow: var(--shadow-hero);
   padding: 20px;
-  transition:
-    padding 0.25s ease,
-    border-radius 0.25s ease,
-    background-color 0.25s ease,
-    box-shadow 0.25s ease;
+  /* No transitions on the compact toggle: animating padding/border-radius/
+   * box-shadow re-layouts and repaints the sticky hero every frame while
+   * scrolling, which stutters. The collapse is instant instead. */
 }
 /* Brand accent line along the bottom edge of the expanded hero. */
 .hero::after {
@@ -138,10 +150,6 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   background:
     radial-gradient(120% 120% at 80% 20%, var(--primary-bg), transparent 55%),
     linear-gradient(135deg, var(--primary-bg), transparent 65%);
-  transition:
-    width 0.25s ease,
-    height 0.25s ease,
-    border-radius 0.25s ease;
 }
 .hero__glyph {
   display: block;
@@ -150,9 +158,6 @@ onUnmounted(() => window.removeEventListener("scroll", onScroll));
   background-color: var(--primary);
   -webkit-mask: url("/icons/syringe.svg") center / contain no-repeat;
   mask: url("/icons/syringe.svg") center / contain no-repeat;
-  transition:
-    width 0.25s ease,
-    height 0.25s ease;
 }
 .hero--compact .hero__icon {
   width: 36px;
