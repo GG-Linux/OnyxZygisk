@@ -113,7 +113,9 @@ androidComponents.onVariants { variant ->
             expand(
                 "moduleId" to moduleId,
                 "moduleName" to moduleName,
-                "versionName" to "$verName ($verCode-$commitHash-$variantLowered)",
+                // Keep the version line clean — build metadata stays in the
+                // zip file name only (OnyxZygisk-v1.0.5-329-<hash>-release.zip).
+                "versionName" to verName,
                 "versionCode" to verCode
             )
         }
