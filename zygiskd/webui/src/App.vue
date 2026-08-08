@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /* App — the page header is the live status hero: it sticks to the top while
  * scrolling and collapses into a compact bar (small icon, chips hidden).
- * System state is shared with StatusSection via MONITOR_STATE_KEY.
+ * System state is shared with the data sections via MONITOR_STATE_KEY.
  */
-import { computed, onMounted, onUnmounted, provide, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, provide, ref, watch } from "vue";
 import { fmtVer } from "./api/system";
 import { MONITOR_STATE_KEY, useMonitorState } from "./composables/useMonitorState";
 import { useLocale } from "./composables/useLocale";
@@ -11,9 +11,8 @@ import FnSection from "./components/FnSection.vue";
 import LogsSection from "./components/LogsSection.vue";
 import ModulesSection from "./components/ModulesSection.vue";
 import SettingsSection from "./components/SettingsSection.vue";
-import StatusSection from "./components/StatusSection.vue";
 
-const { t } = useLocale();
+const { t, locale } = useLocale();
 
 const state = useMonitorState();
 provide(MONITOR_STATE_KEY, state);
@@ -68,6 +67,13 @@ watch(compact, () => {
   }, COLLAPSE_MS + 50);
 });
 
+// Everything that changes the hero's height, re-measured explicitly. The first
+// measurement runs before the initial fetch resolves, so it misses the chips;
+// without these the spacer would stay ~20px short and the header would overlap
+// the page. A ResizeObserver alone is not enough — some WebViews never deliver
+// its callbacks, and then nothing would ever correct that first reading.
+watch([rootImpl, version, loading, locale], () => nextTick(measure));
+
 // Coalesce scroll events into a single class update per animation frame.
 let rafId = 0;
 function onScroll(): void {
@@ -94,10 +100,12 @@ onMounted(() => {
     ro.observe(heroEl.value);
   }
   window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", measure, { passive: true });
   onScroll();
 });
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", measure);
   ro?.disconnect();
   clearTimeout(settling);
   if (rafId) cancelAnimationFrame(rafId);
@@ -132,7 +140,6 @@ onUnmounted(() => {
   <div class="hero-spacer" :style="{ height: heroHeight + 'px' }"></div>
 
   <div id="page_content">
-    <StatusSection />
     <ModulesSection />
     <FnSection />
     <LogsSection />
