@@ -25,27 +25,34 @@ use std::os::fd::{AsFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
 use std::{
     os::unix::net::{UnixListener, UnixStream},
-    path::Path,
+    path::{Path, PathBuf},
     process::Command,
     sync::{Arc, Mutex, OnceLock},
     thread,
 };
 
-/// Represents a loaded Zygisk module.
+/// A classic Zygisk module, as scanned fresh from `PATH_MODULES_DIR`.
+///
+/// Transient: built by `load_modules()` for a single request and dropped
+/// afterwards. Its companion socket, if any, lives in
+/// `AppContext::module_companions` (keyed by `name`) rather than here, so it
+/// survives across repeated re-scans of the module directory.
 struct Module {
     name: String,
     lib_fd: OwnedFd,
-    /// A handle to the module's companion process socket, if it exists and is running.
-    companion: Mutex<Option<UnixStream>>,
 }
 
-/// The shared context for the daemon, containing all loaded modules and a mount namespace manager
+/// The shared context for the daemon: a mount namespace manager plus the
+/// persistent companion-socket caches. Module and FN node *lists* are
+/// intentionally not cached here — both are re-scanned from disk on every
+/// request (see `load_modules`, `r#fn::scan_fn_nodes`), so installing,
+/// enabling or disabling one takes effect on the very next process fork
+/// instead of requiring the daemon (and thus the device) to restart.
 struct AppContext {
-    modules: Vec<Module>,
     mount_manager: Arc<MountNamespaceManager>,
-    /// Companion sockets for FN nodes, keyed by node id. Classic modules keep
-    /// their companions inside `Module`; FN nodes come and go at runtime, so a
-    /// map is easier to keep in sync with the on-disk state.
+    /// Companion sockets for classic modules, keyed by module name.
+    module_companions: Mutex<std::collections::HashMap<String, Mutex<Option<UnixStream>>>>,
+    /// Companion sockets for FN nodes, keyed by node id.
     fn_companions: Mutex<std::collections::HashMap<String, Mutex<Option<UnixStream>>>>,
 }
 
@@ -59,21 +66,24 @@ pub fn main(tmp_path: Option<&str>) -> Result<()> {
     info!("Welcome to OnyxZygisk ({}) !", ZKSU_VERSION);
 
     initialize_globals(tmp_path)?;
-    let modules = load_modules()?;
+    // One-time snapshot for the startup log only; every actual request re-scans
+    // fresh (see `load_modules`), so this does not need to stay in sync with
+    // modules installed/removed later.
+    let startup_modules = load_modules()?;
     scan_fn_nodes_at_startup();
     // FN `post-fs-data` scripts run right after startup, mirroring Magisk's
     // post-fs-data stage.
     r#fn::run_fn_scripts(TMP_PATH.get().unwrap(), "post_fs_data");
     // The controller (ptrace monitor) may be absent when the daemon is started
     // manually (e.g. for debugging); that must not kill the daemon.
-    if let Err(e) = send_startup_info(&modules) {
+    if let Err(e) = send_startup_info(&startup_modules) {
         warn!("Failed to send startup info to controller: {}", e);
     }
 
     let mount_manager = Arc::new(MountNamespaceManager::new());
     let context = Arc::new(AppContext {
-        modules,
         mount_manager,
+        module_companions: Mutex::new(std::collections::HashMap::new()),
         fn_companions: Mutex::new(std::collections::HashMap::new()),
     });
     let listener = create_daemon_socket()?;
@@ -116,8 +126,11 @@ fn handle_connection(mut stream: UnixStream, context: Arc<AppContext>) -> Result
         }
         DaemonSocketAction::ZygoteRestart => {
             info!("Zygote restarted, cleaning up companion sockets.");
-            for module in &context.modules {
-                module.companion.lock().unwrap().take();
+            for companion in context.module_companions.lock().unwrap().values() {
+                companion.lock().unwrap().take();
+            }
+            for companion in context.fn_companions.lock().unwrap().values() {
+                companion.lock().unwrap().take();
             }
         }
         DaemonSocketAction::SystemServerStarted => {
@@ -155,11 +168,11 @@ fn handle_threaded_action(
         DaemonSocketAction::UpdateMountNamespace => {
             handle_update_mount_namespace(&mut stream, context)
         }
-        DaemonSocketAction::ReadModules => handle_read_modules(&mut stream, context),
+        DaemonSocketAction::ReadModules => handle_read_modules(&mut stream),
         DaemonSocketAction::RequestCompanionSocket => {
             handle_request_companion_socket(&mut stream, context)
         }
-        DaemonSocketAction::GetModuleDir => handle_get_module_dir(&mut stream, context),
+        DaemonSocketAction::GetModuleDir => handle_get_module_dir(&mut stream),
         DaemonSocketAction::ListFnNodes => handle_list_fn_nodes(&mut stream),
         DaemonSocketAction::SetFnNodeEnabled => handle_set_fn_node_enabled(&mut stream),
         DaemonSocketAction::RemoveFnNode => handle_remove_fn_node(&mut stream),
@@ -242,44 +255,59 @@ fn get_arch() -> Result<&'static str> {
     }
 }
 
-/// Scans the module directory, loads valid modules, and creates memfds for their libraries.
+/// Names and library paths of every module eligible for Zygisk injection —
+/// present under `PATH_MODULES_DIR`, not disabled, with a `zygisk/<arch>.so` —
+/// sorted by name.
+///
+/// Sorting keeps the order deterministic across the several independent
+/// re-scans a single process specialize can trigger (`ReadModules`, then
+/// possibly `RequestCompanionSocket`/`GetModuleDir` for the same loader-side
+/// index), the same way FN nodes stay ordered by `scan_fn_nodes`.
+fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
+    let mut found = Vec::new();
+    let dir = match fs::read_dir(constants::PATH_MODULES_DIR) {
+        Ok(dir) => dir,
+        Err(e) => {
+            warn!("Failed to read modules directory: {}", e);
+            return found;
+        }
+    };
+    for entry in dir.flatten() {
+        let name = entry.file_name().into_string().unwrap_or_default();
+        let so_path = entry.path().join(format!("zygisk/{arch}.so"));
+        let disabled_flag = entry.path().join("disable");
+        if so_path.exists() && !disabled_flag.exists() {
+            found.push((name, so_path));
+        }
+    }
+    found.sort_by(|a, b| a.0.cmp(&b.0));
+    found
+}
+
+/// Cheap variant of `eligible_modules` for handlers that only need to resolve
+/// an index to a module name, without paying to memfd every module's library.
+fn list_module_names(arch: &str) -> Vec<String> {
+    eligible_modules(arch).into_iter().map(|(name, _)| name).collect()
+}
+
+/// Scans the module directory fresh, loads eligible modules, and creates
+/// memfds for their libraries.
+///
+/// Called on every `ReadModules` request rather than once at startup, so
+/// installing, enabling or disabling a module takes effect on the very next
+/// process fork instead of requiring the daemon to restart.
 fn load_modules() -> Result<Vec<Module>> {
     let arch = get_arch()?;
     debug!("Daemon architecture: {arch}");
 
     let mut modules = Vec::new();
-    let dir = match fs::read_dir(constants::PATH_MODULES_DIR) {
-        Ok(dir) => dir,
-        Err(e) => {
-            warn!("Failed to read modules directory: {}", e);
-            return Ok(modules);
-        }
-    };
-
-    for entry in dir.flatten() {
-        let name = entry.file_name().into_string().unwrap_or_default();
-        let so_path = entry.path().join(format!("zygisk/{arch}.so"));
-        let disabled_flag = entry.path().join("disable");
-
-        if !so_path.exists() || disabled_flag.exists() {
-            continue;
-        }
-
+    for (name, so_path) in eligible_modules(arch) {
         info!("Loading module `{}`...", name);
         match create_library_fd(&so_path) {
-            Ok(lib_fd) => {
-                modules.push(Module {
-                    name,
-                    lib_fd,
-                    companion: Mutex::new(None),
-                });
-            }
-            Err(e) => {
-                warn!("Failed to create memfd for `{}`: {}", name, e);
-            }
-        };
+            Ok(lib_fd) => modules.push(Module { name, lib_fd }),
+            Err(e) => warn!("Failed to create memfd for `{}`: {}", name, e),
+        }
     }
-
     Ok(modules)
 }
 
@@ -434,9 +462,11 @@ fn handle_update_mount_namespace(stream: &mut UnixStream, context: &AppContext) 
     Ok(())
 }
 
-fn handle_read_modules(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
-    stream.write_usize(context.modules.len())?;
-    for module in &context.modules {
+fn handle_read_modules(stream: &mut UnixStream) -> Result<()> {
+    // Re-scanned fresh on every call — see `load_modules`.
+    let modules = load_modules()?;
+    stream.write_usize(modules.len())?;
+    for module in &modules {
         stream.write_string(&module.name)?;
         stream.send_fd(module.lib_fd.as_raw_fd())?;
     }
@@ -445,42 +475,48 @@ fn handle_read_modules(stream: &mut UnixStream, context: &AppContext) -> Result<
 
 fn handle_request_companion_socket(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
     let index = stream.read_usize()?;
+    let arch = get_arch()?;
+    let names = list_module_names(arch);
 
     // FN nodes are addressed with an index offset past the classic modules
     // (see `handle_read_fn_modules`); resolve them against a fresh scan.
-    if index >= context.modules.len() {
-        return handle_request_fn_companion_socket(stream, context, index - context.modules.len());
+    if index >= names.len() {
+        return handle_request_fn_companion_socket(stream, context, index - names.len());
     }
+    let name = &names[index];
 
-    let module = &context.modules[index];
-    let mut companion = module.companion.lock().unwrap();
+    // Companion is keyed by module name (not the index above, which only
+    // holds for this one scan) so it survives repeated re-scans of the
+    // module directory, mirroring `handle_request_fn_companion_socket`.
+    let companions = &mut *context.module_companions.lock().unwrap();
+    let cell = companions.entry(name.clone()).or_default();
+    let mut companion = cell.lock().unwrap();
 
     // Check if the existing companion socket is still alive.
     if let Some(sock) = companion.as_ref() {
         if !utils::is_socket_alive(sock) {
-            error!(
-                "Companion for module `{}` appears to have crashed.",
-                module.name
-            );
+            error!("Companion for module `{}` appears to have crashed.", name);
             companion.take();
         }
     }
 
-    // If no companion exists, try to spawn one.
+    // If no companion exists, try to spawn one. The library is only memfd'd
+    // here, on the cold path — most requests hit an already-alive companion
+    // above and never need it.
     if companion.is_none() {
-        match spawn_companion(&module.name, module.lib_fd.as_raw_fd()) {
+        let so_path = Path::new(constants::PATH_MODULES_DIR)
+            .join(name)
+            .join(format!("zygisk/{arch}.so"));
+        match create_library_fd(&so_path).and_then(|fd| spawn_companion(name, fd.as_raw_fd())) {
             Ok(Some(sock)) => {
-                trace!("Spawned new companion for `{}`.", module.name);
+                trace!("Spawned new companion for `{}`.", name);
                 *companion = Some(sock);
             }
             Ok(None) => {
-                warn!(
-                    "Module `{}` does not have a companion entry point.",
-                    module.name
-                );
+                warn!("Module `{}` does not have a companion entry point.", name);
             }
             Err(e) => {
-                warn!("Failed to spawn companion for `{}`: {}", module.name, e);
+                warn!("Failed to spawn companion for `{}`: {}", name, e);
             }
         };
     }
@@ -488,10 +524,7 @@ fn handle_request_companion_socket(stream: &mut UnixStream, context: &AppContext
     // Send the companion FD to the client if available.
     if let Some(sock) = companion.as_ref() {
         if let Err(e) = sock.send_fd(stream.as_raw_fd()) {
-            error!(
-                "Failed to send companion socket FD for module `{}`: {}",
-                module.name, e
-            );
+            error!("Failed to send companion socket FD for module `{}`: {}", name, e);
             // Inform client of failure.
             stream.write_u8(0)?;
         }
@@ -558,16 +591,16 @@ fn handle_request_fn_companion_socket(
     Ok(())
 }
 
-fn handle_get_module_dir(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
+fn handle_get_module_dir(stream: &mut UnixStream) -> Result<()> {
     let index = stream.read_usize()?;
-    let dir = if index < context.modules.len() {
-        let module = &context.modules[index];
-        let dir_path = format!("{}/{}", constants::PATH_MODULES_DIR, module.name);
+    let names = list_module_names(get_arch()?);
+    let dir = if index < names.len() {
+        let dir_path = format!("{}/{}", constants::PATH_MODULES_DIR, names[index]);
         fs::File::open(dir_path)?
     } else {
         // FN node directory, addressed with the offset index space.
         let nodes = r#fn::active_native_nodes(TMP_PATH.get().unwrap());
-        let fn_index = index - context.modules.len();
+        let fn_index = index - names.len();
         let Some(node) = nodes.get(fn_index) else {
             bail!("Unknown module index {}", index);
         };
