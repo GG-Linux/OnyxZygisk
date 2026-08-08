@@ -32,6 +32,18 @@ pub const MAX_LOG_LEVEL: LevelFilter = LevelFilter::Info;
 
 /// The relative path to the directory where Zygisk modules are stored.
 pub const PATH_MODULES_DIR: &str = "..";
+/// Absolute path to the staging directory KernelSU's `ksud` and APatch's
+/// `apd` both extract new/updated modules into, ahead of swapping them into
+/// `PATH_MODULES_DIR` at the next boot. Consulted directly — once that root
+/// solution's own "install finished" signal says it is safe to (see
+/// `zygiskd::staged_update_ready`) — so a freshly installed or updated
+/// module can become injectable on the very next process fork instead of
+/// requiring a reboot.
+pub const PATH_MODULES_UPDATE_DIR: &str = "/data/adb/modules_update";
+/// APatch's global "an install/update just finished" flag (`apd`'s own
+/// `mark_update`), written as the last step of installing or updating any
+/// module.
+pub const PATH_APATCH_UPDATE_FLAG: &str = "/data/adb/ap/update";
 /// The name of the FN (Functional Node) directory inside the daemon work directory.
 pub const PATH_FN_DIR: &str = "fn";
 
