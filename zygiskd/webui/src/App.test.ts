@@ -29,6 +29,15 @@ const stubs = {
   SettingsSection: true,
 };
 
+/** jsdom does not implement a settable scrollY, so stub the getter and let the
+ *  rAF-throttled scroll handler run one frame. */
+async function scrollTo(y: number): Promise<void> {
+  Object.defineProperty(window, "scrollY", { value: y, configurable: true });
+  window.dispatchEvent(new Event("scroll"));
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await Promise.resolve();
+}
+
 beforeEach(() => {
   vi.mocked(fetchState).mockResolvedValue(state());
 });
@@ -42,6 +51,7 @@ describe("App hero", () => {
     expect(hero.find(".root-label__text").text()).toBe("APatch");
     expect(hero.text()).toContain("v1.0");
     expect(hero.find(".badge").text()).toContain("Working");
+    expect(hero.find(".hero__extra").attributes("aria-hidden")).toBeUndefined();
     wrapper.unmount();
   });
 
@@ -50,17 +60,42 @@ describe("App hero", () => {
     await flushPromises();
     expect(wrapper.find(".hero--compact").exists()).toBe(false);
 
-    // jsdom does not implement a settable scrollY: stub the getter.
-    Object.defineProperty(window, "scrollY", { value: 100, configurable: true });
-    window.dispatchEvent(new Event("scroll"));
-    // The scroll handler is rAF-throttled: wait one animation frame.
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    await Promise.resolve();
+    await scrollTo(100);
 
     expect(wrapper.find(".hero--compact").exists()).toBe(true);
-    expect(wrapper.find(".hero__sub").exists()).toBe(false);
-    expect(wrapper.find(".hero__chips").exists()).toBe(false);
+    // The subtitle and chips stay mounted and are collapsed by CSS, so that the
+    // bar animates shut as one piece; only their aria state changes here.
+    expect(wrapper.find(".hero__extra").attributes("aria-hidden")).toBe("true");
     wrapper.unmount();
-    Object.defineProperty(window, "scrollY", { value: 0, configurable: true });
+    await scrollTo(0);
+  });
+
+  it("stays compact until the very top, so a scrollY clamp cannot flip it back", async () => {
+    const wrapper = mount(App, { global: { stubs } });
+    await flushPromises();
+    await scrollTo(100);
+    expect(wrapper.find(".hero--compact").exists()).toBe(true);
+
+    // A shorter document clamps scrollY downwards. Anything above the top must
+    // leave the bar compact, otherwise the collapse and the clamp oscillate.
+    await scrollTo(20);
+    expect(wrapper.find(".hero--compact").exists()).toBe(true);
+    await scrollTo(1);
+    expect(wrapper.find(".hero--compact").exists()).toBe(true);
+
+    await scrollTo(0);
+    expect(wrapper.find(".hero--compact").exists()).toBe(false);
+    wrapper.unmount();
+  });
+
+  it("reserves the expanded hero height in the flow", async () => {
+    const wrapper = mount(App, { global: { stubs } });
+    await flushPromises();
+    // The spacer is what keeps the document height constant across the
+    // collapse; it must be rendered and sized from the hero, not left at auto.
+    const spacer = wrapper.find(".hero-spacer");
+    expect(spacer.exists()).toBe(true);
+    expect(spacer.attributes("style")).toContain("height");
+    wrapper.unmount();
   });
 });
