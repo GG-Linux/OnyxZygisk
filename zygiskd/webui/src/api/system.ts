@@ -73,7 +73,11 @@ const STATUS_SCRIPT = [
   '    ds=$(sed -n "s/^description=//p" "$p" | head -n1)',
   '    dis=0; [ -f "$ad/disable" ] && dis=1',
   '    hp=0; [ -f "$W/hotplug/$id" ] && hp=1',
-  '    echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds|$pend|$hp"',
+  // Was this module hot-plugged into the active directory? Such modules keep
+  // a plug/unplug switch (hotplug flag present = plugged), independent of
+  // the pending-update state.
+  '    hg=0; [ -f "$W/hotplug_activated/$id.post_fs_data" ] && hg=1',
+  '    echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds|$pend|$hp|$hg"',
   "  done",
   'echo "@@fn"',
   'for d in "$W"/fn/*/; do',
@@ -123,6 +127,7 @@ export function parseStatus(out: string): StateData {
         desc: p[7],
         pendingUpdate: p[8] === "1",
         hotplugEnabled: p[9] === "1",
+        hotplugged: p[10] === "1",
       } as ModuleInfo);
     } else if (section === "fn" && line.startsWith("F|")) {
       const p = line.split("|");

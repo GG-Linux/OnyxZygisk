@@ -52,9 +52,11 @@ async function toggleHotplug(m: ModuleInfo, enabled: boolean) {
           </div>
           <div class="mod-row__foot">
             <span class="mod-row__author">{{ m.author || t("modules.unknownAuthor") }}</span>
-            <div v-if="m.pendingUpdate" class="mod-row__hotplug">
+            <!-- A staged update can be applied early (plug); a module already
+                 hot-plugged into the active dir keeps a plug/unplug switch. -->
+            <div v-if="m.pendingUpdate || m.hotplugged" class="mod-row__hotplug">
               <span class="mod-row__hotplug-label">
-                {{ t("modules.hotplug") }}
+                {{ m.pendingUpdate ? t("modules.hotplug") : t("modules.hotplugToggle") }}
                 <span v-if="!hotplug" class="mod-row__hotplug-off">{{ t("modules.hotplugOff") }}</span>
               </span>
               <Switch
