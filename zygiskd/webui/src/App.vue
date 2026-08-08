@@ -3,7 +3,7 @@
  * scrolling and collapses into a compact bar (small icon, chips hidden).
  * System state is shared with StatusSection via MONITOR_STATE_KEY.
  */
-import { computed, onMounted, onUnmounted, provide, ref } from "vue";
+import { computed, onMounted, onUnmounted, provide, ref, watch } from "vue";
 import { fmtVer } from "./api/system";
 import { MONITOR_STATE_KEY, useMonitorState } from "./composables/useMonitorState";
 import { useLocale } from "./composables/useLocale";
@@ -40,40 +40,87 @@ const overall = computed(() => {
 });
 
 const compact = ref(false);
+const heroEl = ref<HTMLElement | null>(null);
+/** Expanded hero height, held in the flow by the spacer (see the style block). */
+const heroHeight = ref(0);
+
+/** Collapse animation length; keep in sync with the transitions in the style block. */
+const COLLAPSE_MS = 250;
+let settling: number | undefined;
+let animating = false;
+
+function measure(): void {
+  // Only the settled, expanded height is ever recorded. Tracking the compact
+  // bar would shorten the document by ~60px the moment the hero collapsed —
+  // the twitch this component kept regressing into, see onScroll. Mid-animation
+  // frames are skipped too, otherwise the spacer would follow the hero down and
+  // back up while it expands and drag the page content with it.
+  if (compact.value || animating || !heroEl.value) return;
+  heroHeight.value = heroEl.value.offsetHeight;
+}
+
+watch(compact, () => {
+  animating = true;
+  clearTimeout(settling);
+  settling = window.setTimeout(() => {
+    animating = false;
+    measure();
+  }, COLLAPSE_MS + 50);
+});
+
 // Coalesce scroll events into a single class update per animation frame.
-// The toggle itself is cheap; this keeps it from flipping mid-frame while
-// the user is scrolling.
 let rafId = 0;
 function onScroll(): void {
   if (rafId) return;
   rafId = requestAnimationFrame(() => {
     rafId = 0;
-    compact.value = window.scrollY > 16;
+    const y = window.scrollY;
+    // Asymmetric thresholds. A single threshold flips on every pixel of scroll
+    // jitter around it, and the browser clamping scrollY after a layout change
+    // used to push the state straight back across it — the two fed each other
+    // and the bar convulsed. Collapsing needs real downward scroll; expanding
+    // only happens back at the very top, which no clamp can overshoot into.
+    if (compact.value ? y <= 0 : y > 24) compact.value = !compact.value;
   });
 }
+
+let ro: ResizeObserver | undefined;
 onMounted(() => {
+  measure();
+  // Re-measure when the hero's content changes height (chips arriving after the
+  // first fetch, a locale switch, a viewport resize rewrapping the subtitle).
+  if (heroEl.value && typeof ResizeObserver !== "undefined") {
+    ro = new ResizeObserver(measure);
+    ro.observe(heroEl.value);
+  }
   window.addEventListener("scroll", onScroll, { passive: true });
   onScroll();
 });
 onUnmounted(() => {
   window.removeEventListener("scroll", onScroll);
+  ro?.disconnect();
+  clearTimeout(settling);
   if (rafId) cancelAnimationFrame(rafId);
 });
 </script>
 
 <template>
-  <header class="hero" :class="{ 'hero--compact': compact }">
+  <header ref="heroEl" class="hero" :class="{ 'hero--compact': compact }">
     <div class="hero__icon" aria-hidden="true">
       <span class="hero__glyph"></span>
     </div>
     <div class="hero__body">
       <div class="hero__title">OnyxZygisk</div>
-      <div v-if="!compact" class="hero__sub">{{ t("header.subtitle") }}</div>
-      <div v-if="!compact" class="hero__chips">
-        <span v-if="rootImpl" class="chip chip--accent root-label">
-          <span class="root-label__text">{{ rootImpl }}</span>
-        </span>
-        <span v-if="version" class="chip">{{ fmtVer(version) }}</span>
+      <!-- Kept mounted and collapsed by CSS: removing it with v-if would drop
+           ~40px of the hero instantly and the padding would animate alone. -->
+      <div class="hero__extra" :aria-hidden="compact || undefined">
+        <div class="hero__sub">{{ t("header.subtitle") }}</div>
+        <div class="hero__chips">
+          <span v-if="rootImpl" class="chip chip--accent root-label">
+            <span class="root-label__text">{{ rootImpl }}</span>
+          </span>
+          <span v-if="version" class="chip">{{ fmtVer(version) }}</span>
+        </div>
       </div>
     </div>
     <span class="badge" :class="overall.cls">
@@ -82,6 +129,7 @@ onUnmounted(() => {
       {{ t(overall.key) }}
     </span>
   </header>
+  <div class="hero-spacer" :style="{ height: heroHeight + 'px' }"></div>
 
   <div id="page_content">
     <StatusSection />
@@ -93,10 +141,18 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* ── status hero: page header, sticks to the top, collapses on scroll ── */
+/* ── status hero: page header, pinned to the top, collapses on scroll ──
+ * Fixed rather than sticky, with .hero-spacer holding its expanded height in
+ * the flow. A sticky hero is part of the document, so collapsing it shortened
+ * the page mid-scroll: content jerked upwards under the finger and the
+ * resulting scrollY clamp re-entered the scroll handler. Fixed + spacer keeps
+ * the document height constant no matter which state the bar is in.
+ */
 .hero {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
   max-width: 720px;
   margin: 0 auto;
@@ -108,12 +164,18 @@ onUnmounted(() => {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-hero);
-  padding: 20px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 20px;
+  /* Animating padding / radius / size is only affordable because the hero is
+   * out of flow: the reflow each frame is scoped to this header's handful of
+   * nodes instead of the whole document. */
   transition:
     padding 0.25s ease,
     border-radius 0.25s ease,
     background-color 0.25s ease,
     box-shadow 0.25s ease;
+}
+.hero-spacer {
+  width: 100%;
 }
 /* Brand accent line along the bottom edge of the expanded hero. */
 .hero::after {
@@ -168,6 +230,19 @@ onUnmounted(() => {
   transition:
     width 0.25s ease,
     height 0.25s ease;
+}
+/* Subtitle + chips: collapse together with the bar instead of disappearing. */
+.hero__extra {
+  overflow: hidden;
+  max-height: 64px;
+  opacity: 1;
+  transition:
+    max-height 0.25s ease,
+    opacity 0.16s ease;
+}
+.hero--compact .hero__extra {
+  max-height: 0;
+  opacity: 0;
 }
 .hero--compact .hero__icon {
   width: 36px;

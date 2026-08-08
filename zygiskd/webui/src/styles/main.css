@@ -27,7 +27,9 @@
   --orange-bg: rgba(240, 160, 32, 0.14);
   --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
   --shadow-hero: 0 2px 6px rgba(24, 160, 88, 0.08), 0 1px 3px rgba(16, 24, 40, 0.05);
-  --header-bg: rgba(242, 243, 245, 0.92);
+  /* Opaque: the compact header has no backdrop-filter behind it, so any alpha
+   * here just lets the scrolling content ghost through the bar. */
+  --header-bg: #f2f3f5;
 }
 [data-theme="dark"] {
   --bg: #0f1013;
@@ -51,7 +53,7 @@
   --orange-bg: rgba(242, 201, 125, 0.13);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
   --shadow-hero: 0 2px 8px rgba(99, 226, 183, 0.07), 0 1px 3px rgba(0, 0, 0, 0.3);
-  --header-bg: rgba(15, 16, 19, 0.92);
+  --header-bg: #0f1013;
 }
 [data-theme="amoled"] {
   --bg: #000000;
@@ -75,7 +77,7 @@
   --orange-bg: rgba(242, 201, 125, 0.13);
   --shadow-card: none;
   --shadow-hero: none;
-  --header-bg: rgba(0, 0, 0, 0.92);
+  --header-bg: #000000;
 }
 
 :root {
