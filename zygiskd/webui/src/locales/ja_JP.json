@@ -37,7 +37,8 @@
     "pendingUpdate": "更新が保留中です",
     "hotplug": "今すぐ適用",
     "hotplugOff": "無効",
-    "hotplugNote": "有効化しました。新しく起動するアプリに適用されます"
+    "hotplugNote": "有効化しました。新しく起動するアプリに適用されます",
+    "hotplugToggle": "ホットプラグ済み（取り外し可）"
   },
   "fn": {
     "hint": "FN ノードは /data/adb/onyxzygisk/fn にあります",

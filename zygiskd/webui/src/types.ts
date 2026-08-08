@@ -21,7 +21,7 @@ export interface StatusKeys {
   [key: string]: string | undefined;
 }
 
-/** A Zygisk module row (the `M|id|name|version|author|zygisk|disabled|desc|pending|hotplug` record). */
+/** A Zygisk module row (the `M|id|name|version|author|zygisk|disabled|desc|pending|hotplug|hotplugged` record). */
 export interface ModuleInfo {
   id: string;
   name: string;
@@ -36,6 +36,9 @@ export interface ModuleInfo {
   /** Whether the user opted in to the daemon using the staged version early,
    * ahead of that reboot. Only meaningful when `pendingUpdate` is true. */
   hotplugEnabled: boolean;
+  /** This module was hot-plugged into the active directory (swap done). It
+   * keeps a plug/unplug switch: flag present = plugged, removed = unplugged. */
+  hotplugged: boolean;
 }
 
 /** An FN node row (the `F|id|name|version|trigger|scope|status` record). */

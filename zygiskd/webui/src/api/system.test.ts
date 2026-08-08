@@ -12,8 +12,8 @@ describe("parseStatus", () => {
     "\tmonitor:\ttracing",
     "",
     "@@modules",
-    "M|playintegrityfix|Play Integrity Fix|v18.8|chiteroman|1|0|修复认证|0|0",
-    "M|tricky_store|Tricky Store|v1.2.1|5ec1cff|1|1|在 TEE 上伪造 keybox|0|0",
+    "M|playintegrityfix|Play Integrity Fix|v18.8|chiteroman|1|0|修复认证|0|0|0",
+    "M|tricky_store|Tricky Store|v1.2.1|5ec1cff|1|1|在 TEE 上伪造 keybox|0|0|1",
     "@@fn",
     "F|net_guard|网络守卫|1.0|app|com.bank.*|enabled",
     "F|prop_shield|属性护盾|2.1|system_server|all|disabled",
@@ -46,8 +46,10 @@ describe("parseStatus", () => {
       desc: "修复认证",
       pendingUpdate: false,
       hotplugEnabled: false,
+      hotplugged: false,
     });
     expect(d.modules[1].disabled).toBe(true);
+    expect(d.modules[1].hotplugged).toBe(true);
   });
 
   it("parses FN node records", () => {

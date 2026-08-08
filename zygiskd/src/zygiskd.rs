@@ -349,6 +349,30 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
         warn!("Failed to read modules directory: {}", constants::PATH_MODULES_DIR);
     }
 
+    // Unplug: a module that was hot-plugged into the active directory stays
+    // served only while its hotplug opt-in flag exists. Removing the flag
+    // (the WebUI switch off) stops injection into newly forked processes —
+    // no restart involved.
+    let unplugged: Vec<String> = modules
+        .iter()
+        .filter(|(name, (_, disabled))| {
+            if *disabled {
+                return false;
+            }
+            let activated = Path::new(TMP_PATH.get().unwrap())
+                .join("hotplug_activated")
+                .join(format!("{name}.post_fs_data"));
+            activated.exists() && !hotplug_opted_in(name)
+        })
+        .map(|(name, _)| name.clone())
+        .collect();
+    for name in unplugged {
+        info!("Hot-plug: module `{}` unplugged, not served", name);
+        if let Some((dir, _)) = modules.get(&name) {
+            modules.insert(name, (dir.clone(), true));
+        }
+    }
+
     for (name, module_dir) in opted_in_staged_modules() {
         if !module_dir.join(format!("zygisk/{arch}.so")).exists() {
             continue;
