@@ -92,13 +92,43 @@ static LoadedModule LoadViaCustomLinker(int memfd) {
 }
 #endif  // USE_CUSTOM_LOADER
 
+// Set once a module in this process was actually loaded via the custom
+// loader. Gates DeinitCustomLoaderIfUsed() so it never touches csoloader's
+// global state when nothing here ever initialized it (calling
+// csoloader_deinit() with no prior csoloader_load() would delete a pthread
+// TLS key that was never created).
+static bool g_used_custom_loader = false;
+
 LoadedModule LoadModuleFromMemfd(int memfd) {
 #if USE_CUSTOM_LOADER
     if (LoadedModule lm = LoadViaCustomLinker(memfd)) {
         LOGV("loaded module from fd %d via custom linker", memfd);
+        g_used_custom_loader = true;
         return lm;
     }
     // Custom path failed — fall through to the always-available system linker.
 #endif
     return LoadViaSystemLinker(memfd);
+}
+
+bool UnloadModule(void *handle, bool custom) {
+    if (!custom) return dlclose(handle) == 0;
+
+    // csoloader_unload() is csoloader's dlclose equivalent: it unmaps the
+    // library's segments and tears down its per-load bookkeeping. The
+    // `csoloader` struct itself was heap-allocated in LoadViaCustomLinker and
+    // is ours to free.
+    auto *lib = static_cast<csoloader *>(handle);
+    bool ok = csoloader_unload(lib);
+    if (!ok) LOGW("csoloader_unload failed for handle %p", handle);
+    delete lib;
+    return ok;
+}
+
+void DeinitCustomLoaderIfUsed() {
+    if (!g_used_custom_loader) return;
+    csoloader_deinit();
+    // Defensive: a second call in the same process becomes a no-op rather
+    // than tearing down already-torn-down global state.
+    g_used_custom_loader = false;
 }

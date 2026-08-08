@@ -212,7 +212,7 @@ struct ZygiskModule {
     void clearApi() { memset(&api, 0, sizeof(api)); }
     int getId() const { return id; }
 
-    ZygiskModule(int id, void *handle, void *entry);
+    ZygiskModule(int id, void *handle, void *entry, bool custom);
 
     static bool RegisterModuleImpl(ApiTable *api, long *module);
 
@@ -221,6 +221,9 @@ private:
     bool unload = false;
 
     void *const handle;
+    // True if `handle` came from the in-process custom loader rather than
+    // dlopen(); tryUnload() needs this to call the matching teardown.
+    const bool custom;
     union {
         void *const ptr;
         void (*const fn)(void *, void *);

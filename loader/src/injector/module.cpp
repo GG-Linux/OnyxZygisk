@@ -21,8 +21,8 @@
 
 using namespace std;
 
-ZygiskModule::ZygiskModule(int id, void *handle, void *entry)
-    : id(id), handle(handle), entry{entry}, api{}, mod{nullptr} {
+ZygiskModule::ZygiskModule(int id, void *handle, void *entry, bool custom)
+    : id(id), handle(handle), custom(custom), entry{entry}, api{}, mod{nullptr} {
     // Make sure all pointers are null
     memset(&api, 0, sizeof(api));
     api.base.impl = this;
@@ -104,7 +104,7 @@ void ZygiskModule::setOption(zygisk::Option opt) {
 
 uint32_t ZygiskModule::getFlags() { return g_ctx ? (g_ctx->info_flags & ~PRIVATE_MASK) : 0; }
 
-bool ZygiskModule::tryUnload() const { return unload && dlclose(handle) == 0; }
+bool ZygiskModule::tryUnload() const { return unload && UnloadModule(handle, custom); }
 
 // -----------------------------------------------------------------
 
@@ -335,7 +335,7 @@ void ZygiskContext::run_modules_pre() {
     for (size_t i = 0; i < size; i++) {
         auto &m = ms[i];
         if (LoadedModule lm = LoadModuleFromMemfd(m.memfd)) {
-            modules.emplace_back(i, lm.handle, lm.entry);
+            modules.emplace_back(i, lm.handle, lm.entry, lm.custom);
         }
     }
 
@@ -354,7 +354,7 @@ void ZygiskContext::run_modules_pre() {
         if (LoadedModule lm = LoadModuleFromMemfd(fn.memfd)) {
             LOGI("loading FN module `%s` into %s (priority %u)", fn.id.c_str(),
                  is_server ? "system_server" : process ? process : "unknown", fn.priority);
-            modules.emplace_back(size + i, lm.handle, lm.entry);
+            modules.emplace_back(size + i, lm.handle, lm.entry, lm.custom);
         }
     }
 
@@ -383,7 +383,15 @@ void ZygiskContext::run_modules_post() {
 
     if (modules.size() > 0) {
         LOGV("modules unloaded: %zu/%zu", modules_unloaded, modules.size());
-        if (modules.size() == modules_unloaded) clean_libc_trace();
+        if (modules.size() == modules_unloaded) {
+            clean_libc_trace();
+            // Only safe once every module this process loaded — custom or
+            // system-linker — is actually gone: a still-resident
+            // custom-loaded module (one that didn't ask to unload) depends on
+            // the custom loader's global TLS bookkeeping for as long as it
+            // keeps running.
+            DeinitCustomLoaderIfUsed();
+        }
         clean_linker_trace("jit-cache-zygisk", modules.size(), modules_unloaded, true);
         g_hook->should_spoof_maps =
             (flags & APP_SPECIALIZE) && (modules.size() - modules_unloaded) > 0;

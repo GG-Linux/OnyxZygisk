@@ -41,3 +41,29 @@ struct LoadedModule {
  *         load or the symbol lookup failed.
  */
 LoadedModule LoadModuleFromMemfd(int memfd);
+
+/**
+ * @brief Unload a module handle previously returned by LoadModuleFromMemfd.
+ *
+ * Dispatches to dlclose() for a system-linker handle, or to the custom
+ * loader's own teardown (which also frees its bookkeeping struct) for one
+ * loaded in-process. `handle` must not be used again after this call either
+ * way.
+ *
+ * @param handle LoadedModule::handle from the original load.
+ * @param custom LoadedModule::custom from the same load.
+ * @return true on success.
+ */
+bool UnloadModule(void *handle, bool custom);
+
+/**
+ * @brief Tear down the custom loader's process-wide global state.
+ *
+ * Safe to call unconditionally — a no-op if the custom loader was never used
+ * in this process. Must only be called once every module this process loaded
+ * through it has also been unloaded via UnloadModule(): the teardown releases
+ * TLS bookkeeping that a still-resident custom-loaded module (one that never
+ * asked to unload — the common case) would depend on, so calling it early
+ * corrupts that module's state instead of merely leaking memory.
+ */
+void DeinitCustomLoaderIfUsed();
