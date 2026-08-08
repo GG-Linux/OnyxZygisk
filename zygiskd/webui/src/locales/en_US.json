@@ -37,7 +37,7 @@
     "pendingUpdate": "Update staged, not yet applied",
     "hotplug": "Apply now",
     "hotplugOff": "master off",
-    "hotplugRestarting": "Enabled, restarting zygote…"
+    "hotplugNote": "Enabled — newly started apps will load this module"
   },
   "fn": {
     "hint": "FN nodes in /data/adb/onyxzygisk/fn",
