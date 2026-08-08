@@ -1,0 +1,3 @@
+[submodule "loader/src/external/csoloader"]
+	path = loader/src/external/csoloader
+	url = https://github.com/ThePedroo/CSOLoader
