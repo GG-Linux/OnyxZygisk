@@ -283,20 +283,35 @@ fn staged_update_ready(root: root_impl::RootImpl, name: &str) -> bool {
     }
 }
 
+/// Whether the user explicitly opted `name` into using its staged update
+/// early, via the WebUI's per-module switch (`WORKDIR/hotplug/<name>`,
+/// touched/removed exactly like the `disable`/`update`/`remove` flags
+/// elsewhere in this project).
+///
+/// `staged_update_ready` alone only proves the staged copy is *safe* to
+/// read; it says nothing about whether the user *wants* it read before the
+/// root solution's own official boot-time commit. Requiring this opt-in too
+/// turns that automatic behavior into an explicit, per-module confirmation.
+fn hotplug_opted_in(name: &str) -> bool {
+    Path::new(TMP_PATH.get().unwrap()).join("hotplug").join(name).exists()
+}
+
 /// Names and directories of every module eligible for Zygisk injection,
 /// sorted by name. Two sources are merged:
 ///
 /// - `PATH_MODULES_DIR`, the active directory — today's baseline;
 /// - for KernelSU and APatch, any module with a *complete* staged update in
-///   `PATH_MODULES_UPDATE_DIR` (see `staged_update_ready`). A staged entry
-///   wins over an active one with the same name (it is the newer version);
-///   its disabled state is inherited from the active entry, mirroring
-///   exactly what `ksud`'s / `apd`'s own boot-time swap does ("if the old
-///   module is disabled, the new one starts disabled too").
+///   `PATH_MODULES_UPDATE_DIR` that the user has also explicitly opted into
+///   (see `staged_update_ready` and `hotplug_opted_in`). A staged entry wins
+///   over an active one with the same name (it is the newer version); its
+///   disabled state is inherited from the active entry, mirroring exactly
+///   what `ksud`'s / `apd`'s own boot-time swap does ("if the old module is
+///   disabled, the new one starts disabled too").
 ///
 /// This is what lets a freshly installed or updated module become
 /// injectable on the very next process fork, instead of waiting for the
-/// boot-time swap the root solution itself performs.
+/// boot-time swap the root solution itself performs — once the user
+/// confirms it, via the WebUI's per-module switch.
 ///
 /// Sorting keeps the order deterministic across the several independent
 /// re-scans a single process specialize can trigger (`ReadModules`, then
@@ -324,7 +339,7 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
     if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_UPDATE_DIR) {
         for entry in dir.flatten() {
             let name = entry.file_name().into_string().unwrap_or_default();
-            if !staged_update_ready(*root, &name) {
+            if !staged_update_ready(*root, &name) || !hotplug_opted_in(&name) {
                 continue;
             }
             let module_dir = entry.path();

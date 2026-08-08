@@ -1,18 +1,32 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
-import { fmtVer } from "../api/system";
+import { computed, inject, ref } from "vue";
+import { fmtVer, setModuleHotplug } from "../api/system";
 import { useLocale } from "../composables/useLocale";
 import { MONITOR_STATE_KEY, useMonitorState } from "../composables/useMonitorState";
 import type { MonitorState } from "../composables/useMonitorState";
 import Card from "./atoms/Card.vue";
+import Switch from "./atoms/Switch.vue";
+import type { ModuleInfo } from "../types";
 
 const { t } = useLocale();
 // Shared 6s-polled state (provided by App.vue); local fallback for standalone mounts.
 const state = inject<MonitorState | null>(MONITOR_STATE_KEY, null) ?? useMonitorState();
-const { loading, error, modules } = state;
+const { loading, error, modules, load } = state;
 
 // Only Zygisk-capable modules are shown (the shell also filters them).
 const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
+
+const msg = ref("");
+
+async function toggleHotplug(m: ModuleInfo, enabled: boolean) {
+  msg.value = "";
+  try {
+    await setModuleHotplug(m.id, enabled);
+    await load();
+  } catch (e) {
+    msg.value = e instanceof Error ? e.message : String(e);
+  }
+}
 </script>
 
 <template>
@@ -27,15 +41,26 @@ const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
             <span class="mod-row__name">{{ m.name || m.id }}</span>
             <span class="mod-row__ver">{{ fmtVer(m.version) }}</span>
           </div>
-          <div v-if="m.desc" class="mod-row__desc">{{ m.desc }}</div>
+          <div class="mod-row__meta">
+            <span v-if="m.desc" class="mod-row__desc">{{ m.desc }}</span>
+            <span v-if="m.pendingUpdate" class="mod-row__pending">{{ t("modules.pendingUpdate") }}</span>
+          </div>
           <div class="mod-row__foot">
             <span class="mod-row__author">{{ m.author || t("modules.unknownAuthor") }}</span>
-            <span class="mod-row__status" :class="m.disabled ? 'off' : 'on'">
+            <div v-if="m.pendingUpdate" class="mod-row__hotplug">
+              <span class="mod-row__hotplug-label">{{ t("modules.hotplug") }}</span>
+              <Switch
+                :checked="m.hotplugEnabled"
+                @update:checked="toggleHotplug(m, $event)"
+              />
+            </div>
+            <span v-else class="mod-row__status" :class="m.disabled ? 'off' : 'on'">
               {{ m.disabled ? t("common.disabled") : t("common.enabled") }}
             </span>
           </div>
         </div>
       </div>
+      <div v-if="msg" class="msg">{{ msg }}</div>
     </Card>
   </section>
 </template>
@@ -54,10 +79,21 @@ const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
   font-size: 12px;
   color: var(--text3);
 }
+.mod-row__meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
 .mod-row__desc {
   font-size: 12px;
   color: var(--text2);
-  margin-top: 2px;
+}
+.mod-row__pending {
+  font-size: 11px;
+  color: var(--orange);
+  font-weight: 500;
 }
 .mod-row__foot {
   display: flex;
@@ -77,6 +113,15 @@ const zygiskModules = computed(() => modules.value.filter((m) => m.zygisk));
   color: var(--green);
 }
 .mod-row__status.off {
+  color: var(--text3);
+}
+.mod-row__hotplug {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mod-row__hotplug-label {
+  font-size: 11px;
   color: var(--text3);
 }
 </style>

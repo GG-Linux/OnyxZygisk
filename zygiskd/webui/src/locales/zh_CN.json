@@ -33,7 +33,9 @@
   "modules": {
     "hint": "位于 /data/adb/modules 的 Zygisk 模块",
     "empty": "没有已安装的 Zygisk 模块",
-    "unknownAuthor": "未知作者"
+    "unknownAuthor": "未知作者",
+    "pendingUpdate": "有更新待生效",
+    "hotplug": "立即生效"
   },
   "fn": {
     "hint": "FN 节点位于 /data/adb/onyxzygisk/fn",

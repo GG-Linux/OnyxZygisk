@@ -33,7 +33,9 @@
   "modules": {
     "hint": "Zygisk modules in /data/adb/modules",
     "empty": "No Zygisk modules installed",
-    "unknownAuthor": "unknown"
+    "unknownAuthor": "unknown",
+    "pendingUpdate": "Update staged, not yet applied",
+    "hotplug": "Apply now"
   },
   "fn": {
     "hint": "FN nodes in /data/adb/onyxzygisk/fn",

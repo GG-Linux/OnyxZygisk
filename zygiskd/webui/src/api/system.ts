@@ -42,7 +42,21 @@ const STATUS_SCRIPT = [
   '  dis=0; [ -f "$d/disable" ] && dis=1',
   // Only Zygisk-capable modules are shown in the WebUI.
   '  [ "$zy" = 0 ] && continue',
-  '  echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds"',
+  // A newer version staged by the root manager (KernelSU/APatch), confirmed
+  // fully written by that root solution's own "install finished" signal —
+  // same check the daemon itself uses, see zygiskd::staged_update_ready.
+  // FolkPatch reuses APatch's apd and its staging convention.
+  '  pend=0',
+  '  if [ "$r" = "KernelSU" ]; then',
+  '    [ -f "/data/adb/modules/$id/update" ] && pend=1',
+  '  elif [ "$r" = "APatch" ] || [ "$r" = "FolkPatch" ]; then',
+  '    if [ -f "/data/adb/ap/update" ]; then',
+  '      [ -f "/data/adb/modules_update/$id/zygisk/arm64-v8a.so" ] && pend=1',
+  '      [ -f "/data/adb/modules_update/$id/zygisk/armeabi-v7a.so" ] && pend=1',
+  '    fi',
+  '  fi',
+  '  hp=0; [ -f "$W/hotplug/$id" ] && hp=1',
+  '  echo "M|$id|$nm|$ver|$au|$zy|$dis|$ds|$pend|$hp"',
   "done",
   'echo "@@fn"',
   'for d in "$W"/fn/*/; do',
@@ -90,6 +104,8 @@ export function parseStatus(out: string): StateData {
         zygisk: p[5] === "1",
         disabled: p[6] === "1",
         desc: p[7],
+        pendingUpdate: p[8] === "1",
+        hotplugEnabled: p[9] === "1",
       } as ModuleInfo);
     } else if (section === "fn" && line.startsWith("F|")) {
       const p = line.split("|");
@@ -143,6 +159,16 @@ export async function fetchLogs(lines: number | string): Promise<string> {
 export async function setFnEnabled(id: string, enabled: boolean): Promise<void> {
   const flag = `${WORKDIR}/fn/${id}/disable`;
   await exec(enabled ? `rm -f '${flag}'` : `touch '${flag}'`);
+}
+
+/** Opt a module with a detected pending update into using it immediately —
+ * the daemon only overlays a staged update when both this flag and the root
+ * solution's own "install finished" signal are present. See
+ * zygiskd::eligible_modules. */
+export async function setModuleHotplug(id: string, enabled: boolean): Promise<void> {
+  const dir = `${WORKDIR}/hotplug`;
+  const flag = `${dir}/${id}`;
+  await exec(enabled ? `mkdir -p '${dir}' && touch '${flag}'` : `rm -f '${flag}'`);
 }
 
 /** Normalize version display: strip a leading v/V then add one. */
