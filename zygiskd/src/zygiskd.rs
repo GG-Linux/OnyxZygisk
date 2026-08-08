@@ -75,8 +75,9 @@ pub fn main(tmp_path: Option<&str>) -> Result<()> {
     initialize_globals(tmp_path)?;
     // One-time snapshot for the startup log only; every actual request re-scans
     // fresh (see `load_modules`), so this does not need to stay in sync with
-    // modules installed/removed later.
-    let startup_modules = load_modules()?;
+    // modules installed/removed later. activate=false: must not run/rename a
+    // staged module here — see `load_modules`'s doc comment.
+    let startup_modules = load_modules(false)?;
     scan_fn_nodes_at_startup();
     // FN `post-fs-data` scripts run right after startup, mirroring Magisk's
     // post-fs-data stage.
@@ -394,7 +395,20 @@ fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
 /// Called on every `ReadModules` request rather than once at startup, so
 /// installing, enabling or disabling a module takes effect on the very next
 /// process fork instead of requiring the daemon to restart.
-fn load_modules() -> Result<Vec<Module>> {
+/// `activate` gates the staged-module activation side effect (directory
+/// rename + spawning post-fs-data.sh/service.sh, see `activate_staged_module`
+/// and `run_pending_staged_services`) — pass `false` for a read-only listing.
+///
+/// This matters at daemon startup specifically: the hot-plug opt-in flag
+/// (`WORKDIR/hotplug/<name>`) is a plain file that survives a reboot, so on
+/// every boot where a module was left opted-in from a previous session, an
+/// unconditional call here would activate it as a side effect of what is
+/// only meant to be a passive startup log snapshot — including the
+/// filesystem rename and spawning a shell to run its scripts, at the exact
+/// moment zygote is attempting its very first, most fragile system_server
+/// fork. `main()` passes `false` for that snapshot; the real per-request
+/// path (`handle_read_modules`) passes `true`.
+fn load_modules(activate: bool) -> Result<Vec<Module>> {
     let arch = get_arch()?;
     debug!("Daemon architecture: {arch}");
 
@@ -402,13 +416,15 @@ fn load_modules() -> Result<Vec<Module>> {
     // that missed the live SystemServerStarted event for this daemon
     // instance (see `system_server_ready`). Cheap no-op once nothing is
     // pending.
-    run_pending_staged_services();
+    if activate {
+        run_pending_staged_services();
+    }
 
     let mut modules = Vec::new();
     for (name, module_dir) in eligible_modules(arch) {
         // A staged entry needs activation: swap into the active directory and
         // run its lifecycle scripts once (see `activate_staged_module`).
-        if module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR) {
+        if activate && module_dir.starts_with(constants::PATH_MODULES_UPDATE_DIR) {
             activate_staged_module(&name, &module_dir);
         }
         // Activation may have moved the module into the active directory —
@@ -789,7 +805,7 @@ fn handle_update_mount_namespace(stream: &mut UnixStream, context: &AppContext) 
 
 fn handle_read_modules(stream: &mut UnixStream) -> Result<()> {
     // Re-scanned fresh on every call — see `load_modules`.
-    let modules = load_modules()?;
+    let modules = load_modules(true)?;
     stream.write_usize(modules.len())?;
     for module in &modules {
         stream.write_string(&module.name)?;
