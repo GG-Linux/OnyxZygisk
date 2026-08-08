@@ -255,43 +255,97 @@ fn get_arch() -> Result<&'static str> {
     }
 }
 
-/// Names and library paths of every module eligible for Zygisk injection —
-/// present under `PATH_MODULES_DIR`, not disabled, with a `zygisk/<arch>.so` —
-/// sorted by name.
+/// Whether a staged update for `name` sitting in `PATH_MODULES_UPDATE_DIR` is
+/// guaranteed complete and safe to read, per the active root solution's own
+/// "install/update finished" signal — the exact signal it uses internally
+/// before swapping the staged copy into the active module directory at the
+/// next boot (see `ksud`'s / `apd`'s own `handle_updated_modules`).
+///
+/// KernelSU marks this per module: `modules/<id>/update` is the last file
+/// `ksud` writes when that module's install/update finishes, so its presence
+/// alone proves `modules_update/<id>/` is fully written.
+///
+/// APatch marks it with one global flag instead (`apd`'s `mark_update`, also
+/// written last): once it exists, every entry currently in
+/// `modules_update/` already finished its own (synchronous) install,
+/// regardless of which one triggered the flag.
+///
+/// Magisk has no equivalent per-module signal found, so this is always false
+/// there — a fresh or updated module still needs a reboot before this daemon
+/// can see it.
+fn staged_update_ready(root: root_impl::RootImpl, name: &str) -> bool {
+    match root {
+        root_impl::RootImpl::KernelSU => {
+            Path::new(constants::PATH_MODULES_DIR).join(name).join("update").exists()
+        }
+        root_impl::RootImpl::APatch => Path::new(constants::PATH_APATCH_UPDATE_FLAG).exists(),
+        _ => false,
+    }
+}
+
+/// Names and directories of every module eligible for Zygisk injection,
+/// sorted by name. Two sources are merged:
+///
+/// - `PATH_MODULES_DIR`, the active directory — today's baseline;
+/// - for KernelSU and APatch, any module with a *complete* staged update in
+///   `PATH_MODULES_UPDATE_DIR` (see `staged_update_ready`). A staged entry
+///   wins over an active one with the same name (it is the newer version);
+///   its disabled state is inherited from the active entry, mirroring
+///   exactly what `ksud`'s / `apd`'s own boot-time swap does ("if the old
+///   module is disabled, the new one starts disabled too").
+///
+/// This is what lets a freshly installed or updated module become
+/// injectable on the very next process fork, instead of waiting for the
+/// boot-time swap the root solution itself performs.
 ///
 /// Sorting keeps the order deterministic across the several independent
 /// re-scans a single process specialize can trigger (`ReadModules`, then
 /// possibly `RequestCompanionSocket`/`GetModuleDir` for the same loader-side
 /// index), the same way FN nodes stay ordered by `scan_fn_nodes`.
 fn eligible_modules(arch: &str) -> Vec<(String, PathBuf)> {
-    let mut found = Vec::new();
-    let dir = match fs::read_dir(constants::PATH_MODULES_DIR) {
-        Ok(dir) => dir,
-        Err(e) => {
-            warn!("Failed to read modules directory: {}", e);
-            return found;
+    // name -> (module_dir, disabled)
+    let mut modules: std::collections::HashMap<String, (PathBuf, bool)> =
+        std::collections::HashMap::new();
+
+    if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_DIR) {
+        for entry in dir.flatten() {
+            let name = entry.file_name().into_string().unwrap_or_default();
+            let module_dir = entry.path();
+            if module_dir.join(format!("zygisk/{arch}.so")).exists() {
+                let disabled = module_dir.join("disable").exists();
+                modules.insert(name, (module_dir, disabled));
+            }
         }
-    };
-    for entry in dir.flatten() {
-        let name = entry.file_name().into_string().unwrap_or_default();
-        let so_path = entry.path().join(format!("zygisk/{arch}.so"));
-        let disabled_flag = entry.path().join("disable");
-        if so_path.exists() && !disabled_flag.exists() {
-            found.push((name, so_path));
+    } else {
+        warn!("Failed to read modules directory: {}", constants::PATH_MODULES_DIR);
+    }
+
+    let root = root_impl::get();
+    if let Ok(dir) = fs::read_dir(constants::PATH_MODULES_UPDATE_DIR) {
+        for entry in dir.flatten() {
+            let name = entry.file_name().into_string().unwrap_or_default();
+            if !staged_update_ready(*root, &name) {
+                continue;
+            }
+            let module_dir = entry.path();
+            if !module_dir.join(format!("zygisk/{arch}.so")).exists() {
+                continue;
+            }
+            let disabled = modules.get(&name).is_some_and(|(_, d)| *d);
+            modules.insert(name, (module_dir, disabled)); // staged wins
         }
     }
+
+    let mut found: Vec<(String, PathBuf)> = modules
+        .into_iter()
+        .filter(|(_, (_, disabled))| !disabled)
+        .map(|(name, (dir, _))| (name, dir))
+        .collect();
     found.sort_by(|a, b| a.0.cmp(&b.0));
     found
 }
 
-/// Cheap variant of `eligible_modules` for handlers that only need to resolve
-/// an index to a module name, without paying to memfd every module's library.
-fn list_module_names(arch: &str) -> Vec<String> {
-    eligible_modules(arch).into_iter().map(|(name, _)| name).collect()
-}
-
-/// Scans the module directory fresh, loads eligible modules, and creates
-/// memfds for their libraries.
+/// Scans for eligible modules fresh, and creates memfds for their libraries.
 ///
 /// Called on every `ReadModules` request rather than once at startup, so
 /// installing, enabling or disabling a module takes effect on the very next
@@ -301,7 +355,8 @@ fn load_modules() -> Result<Vec<Module>> {
     debug!("Daemon architecture: {arch}");
 
     let mut modules = Vec::new();
-    for (name, so_path) in eligible_modules(arch) {
+    for (name, module_dir) in eligible_modules(arch) {
+        let so_path = module_dir.join(format!("zygisk/{arch}.so"));
         info!("Loading module `{}`...", name);
         match create_library_fd(&so_path) {
             Ok(lib_fd) => modules.push(Module { name, lib_fd }),
@@ -476,14 +531,14 @@ fn handle_read_modules(stream: &mut UnixStream) -> Result<()> {
 fn handle_request_companion_socket(stream: &mut UnixStream, context: &AppContext) -> Result<()> {
     let index = stream.read_usize()?;
     let arch = get_arch()?;
-    let names = list_module_names(arch);
+    let modules = eligible_modules(arch);
 
     // FN nodes are addressed with an index offset past the classic modules
     // (see `handle_read_fn_modules`); resolve them against a fresh scan.
-    if index >= names.len() {
-        return handle_request_fn_companion_socket(stream, context, index - names.len());
+    if index >= modules.len() {
+        return handle_request_fn_companion_socket(stream, context, index - modules.len());
     }
-    let name = &names[index];
+    let (name, module_dir) = &modules[index];
 
     // Companion is keyed by module name (not the index above, which only
     // holds for this one scan) so it survives repeated re-scans of the
@@ -502,11 +557,10 @@ fn handle_request_companion_socket(stream: &mut UnixStream, context: &AppContext
 
     // If no companion exists, try to spawn one. The library is only memfd'd
     // here, on the cold path — most requests hit an already-alive companion
-    // above and never need it.
+    // above and never need it. `module_dir` may be a staged-update directory
+    // rather than the active one — see `eligible_modules`.
     if companion.is_none() {
-        let so_path = Path::new(constants::PATH_MODULES_DIR)
-            .join(name)
-            .join(format!("zygisk/{arch}.so"));
+        let so_path = module_dir.join(format!("zygisk/{arch}.so"));
         match create_library_fd(&so_path).and_then(|fd| spawn_companion(name, fd.as_raw_fd())) {
             Ok(Some(sock)) => {
                 trace!("Spawned new companion for `{}`.", name);
@@ -593,14 +647,16 @@ fn handle_request_fn_companion_socket(
 
 fn handle_get_module_dir(stream: &mut UnixStream) -> Result<()> {
     let index = stream.read_usize()?;
-    let names = list_module_names(get_arch()?);
-    let dir = if index < names.len() {
-        let dir_path = format!("{}/{}", constants::PATH_MODULES_DIR, names[index]);
-        fs::File::open(dir_path)?
+    let modules = eligible_modules(get_arch()?);
+    let dir = if index < modules.len() {
+        // `module_dir` may be a staged-update directory rather than the
+        // active one — see `eligible_modules`.
+        let (_, module_dir) = &modules[index];
+        fs::File::open(module_dir)?
     } else {
         // FN node directory, addressed with the offset index space.
         let nodes = r#fn::active_native_nodes(TMP_PATH.get().unwrap());
-        let fn_index = index - names.len();
+        let fn_index = index - modules.len();
         let Some(node) = nodes.get(fn_index) else {
             bail!("Unknown module index {}", index);
         };
